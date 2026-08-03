@@ -1,0 +1,20 @@
+{
+  "name": "uptime-guard-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute uptime-guard --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute uptime-guard --remote --file=./schema.sql",
+    "db:migrate": "wrangler d1 execute uptime-guard --file=./migrations/002_monitor_types.sql && wrangler d1 execute uptime-guard --file=./migrations/003_expiry.sql",
+    "db:migrate:remote": "wrangler d1 execute uptime-guard --remote --file=./migrations/002_monitor_types.sql && wrangler d1 execute uptime-guard --remote --file=./migrations/003_expiry.sql",
+    "auth:setup": "node scripts/generate-secrets.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "qrcode-terminal": "^0.12.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.87.0"
+  }
+}

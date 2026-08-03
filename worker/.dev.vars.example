@@ -1,0 +1,17 @@
+# Copy to `.dev.vars` for local development (`.dev.vars` is gitignored).
+#   cp .dev.vars.example .dev.vars
+# These mirror the production secrets you set with `wrangler secret put`.
+
+PASSWORD=change-me-local-password
+# Generate real values with: npm run auth:setup
+TOTP_SECRET=BASE32AUTHENTICATORSECRET
+SESSION_SECRET=any-long-random-string
+
+# Optional — Telegram alerts (leave blank to disable)
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+
+# Optional — Web Push notifications (leave blank to disable)
+VAPID_PUBLIC=
+VAPID_PRIVATE=
+VAPID_SUBJECT=

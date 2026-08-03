@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wrangler/
+
+# Secrets & local config — never commit these (use the .example files)
+.dev.vars
+worker/wrangler.toml
+worker/wrangler.demo.toml
+
+*.log
+.DS_Store

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Worker — install & type-check
+        working-directory: worker
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+      - name: Dashboard — install, type-check & build
+        working-directory: dashboard
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run build
