@@ -2,9 +2,9 @@ node_modules/
 dist/
 .wrangler/
 
-# Secrets & local config — never commit these (use the .example files)
+# Secrets & private deploy configs — never commit these
 .dev.vars
-worker/wrangler.toml
+worker/wrangler.prod.toml
 worker/wrangler.demo.toml
 
 *.log

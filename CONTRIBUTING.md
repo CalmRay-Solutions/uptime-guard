@@ -7,7 +7,6 @@ Thanks for your interest! Contributions of all sizes are welcome.
 ```bash
 git clone https://github.com/CalmRay-Solutions/uptime-guard.git
 cd uptime-guard
-cp worker/wrangler.toml.example worker/wrangler.toml
 cp worker/.dev.vars.example worker/.dev.vars    # fill in local values
 
 # Worker (API + cron), local D1
@@ -15,10 +14,13 @@ cd worker && npm install
 npm run db:init            # local D1 schema
 npm run dev                # wrangler dev on http://localhost:8787
 
-# Dashboard (in another terminal)
+# Dashboard (in another terminal, for hot-reload)
 cd ../dashboard && npm install
 npm run dev
 ```
+
+> The committed `worker/wrangler.toml` is a deployable template. For your own deploys, either use
+> the **Deploy to Cloudflare** button or set `database_id` after `wrangler d1 create`.
 
 ## Before you open a PR
 
