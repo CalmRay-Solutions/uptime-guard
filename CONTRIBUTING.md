@@ -26,7 +26,7 @@ npm run dev
 
 - **Type-check both packages:** `npx tsc --noEmit` in `worker/` and `dashboard/`.
 - **Build the dashboard:** `npm run build` in `dashboard/`.
-- Keep the style of the surrounding code — the dashboard uses plain CSS (no Tailwind) and inline
+- Keep the style of the surrounding code - the dashboard uses plain CSS (no Tailwind) and inline
   SVG icons; the Worker is dependency-light and uses the Web Crypto / `cloudflare:sockets` APIs.
 - One focused change per PR where possible, with a clear description of the user-visible effect.
 
@@ -44,4 +44,4 @@ relevant `wrangler tail` output help a lot.
 
 ## Security
 
-Please do **not** file security issues publicly — see [SECURITY.md](./SECURITY.md).
+Please do **not** file security issues publicly - see [SECURITY.md](./SECURITY.md).
