@@ -4,6 +4,6 @@
   "scripts": {
     "build:dashboard": "npm --prefix dashboard run build",
     "dev": "npm run build:dashboard && npm --prefix worker run dev",
-    "deploy": "npm run build:dashboard && npm --prefix worker run deploy"
+    "deploy": "npx wrangler deploy"
   }
 }
