@@ -36,6 +36,7 @@
 }
 *{box-sizing:border-box}
 html,body,#root{margin:0;padding:0;height:100%}
+html{scrollbar-gutter:stable}  /* reserve the scrollbar gutter so page width doesn't shift */
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;letter-spacing:-0.005em;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden;
   transition:background .3s var(--ease),color .3s var(--ease)}
