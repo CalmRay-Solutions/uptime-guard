@@ -1,0 +1,31 @@
+# Root config so the "Deploy to Cloudflare" button (which looks here) detects the
+# project. It points into worker/ and builds the dashboard first. Works with the
+# button and with `npx wrangler deploy` from the repo root.
+name = "uptime-guard"
+main = "worker/src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Bundle schema.sql as text so the Worker creates its tables on first run.
+rules = [{ type = "Text", globs = ["**/*.sql"], fallthrough = true }]
+
+# Build the React dashboard before deploying (its output is served by the Worker).
+[build]
+command = "npm --prefix dashboard ci && npm --prefix dashboard run build"
+
+[triggers]
+# Every minute: run due checks. Daily 03:00 UTC: roll up stats + prune old data.
+crons = ["* * * * *", "0 3 * * *"]
+
+[assets]
+directory = "dashboard/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "uptime-guard"
+# The Deploy-to-Cloudflare button provisions this automatically. For a manual
+# deploy, run `npx wrangler d1 create uptime-guard` and paste the id here.
+database_id = "PLACEHOLDER_RUN_D1_CREATE"
+
+# Secrets are optional — a fresh deploy sets up the owner on first visit.
