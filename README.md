@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🛡️ Uptime Guard
+<img src="./docs/logo.svg" alt="Uptime Guard" width="96" height="96">
+
+# Uptime Guard
 
 ### Uptime monitoring with **zero servers**. Runs 100% on Cloudflare. **Free.**
 
