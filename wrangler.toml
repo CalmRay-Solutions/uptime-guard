@@ -21,11 +21,11 @@ directory = "dashboard/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
+# No database_id: omitting it triggers automatic D1 provisioning on deploy
+# (the button and `wrangler deploy` create it and write the id back). Requires
+# wrangler >= 4.45.
 [[d1_databases]]
 binding = "DB"
 database_name = "uptime-guard"
-# The Deploy-to-Cloudflare button provisions this automatically. For a manual
-# deploy, run `npx wrangler d1 create uptime-guard` and paste the id here.
-database_id = "PLACEHOLDER_RUN_D1_CREATE"
 
 # Secrets are optional — a fresh deploy sets up the owner on first visit.
