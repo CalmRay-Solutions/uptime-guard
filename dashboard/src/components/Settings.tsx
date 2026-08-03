@@ -68,7 +68,7 @@ function Notifications({ sound, onToggleSound, notify, onToggleNotify }: { sound
         <Row
           icon="siren"
           title="Desktop notifications"
-          desc={notifPerm === "denied" ? "Blocked in your browser. Allow notifications for this site to enable." : "System alerts on status changes — delivered even when the app is closed."}
+          desc={notifPerm === "denied" ? "Blocked in your browser. Allow notifications for this site to enable." : "System alerts on status changes - delivered even when the app is closed."}
           on={notify && notifPerm === "granted"}
           disabled={notifPerm === "denied" || notifPerm === "unsupported"}
           onToggle={onToggleNotify}
@@ -99,7 +99,7 @@ function Telegram({ settings, onSaved, say }: { settings: AppSettings | null; on
   }
   async function test() {
     setBusy("test");
-    try { await api.telegramTest(); say("Test message sent — check Telegram"); }
+    try { await api.telegramTest(); say("Test message sent - check Telegram"); }
     catch (e) { say(e instanceof Error ? e.message : "Test failed"); } finally { setBusy(""); }
   }
 
@@ -241,7 +241,7 @@ function DataRetention({ settings, onSaved, say }: { settings: AppSettings | nul
           {RETENTION_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
         </select>
         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
-          Older records are pruned automatically each day. “Keep forever” disables pruning — history grows without limit.
+          Older records are pruned automatically each day. “Keep forever” disables pruning - history grows without limit.
         </div>
       </div>
     </div>

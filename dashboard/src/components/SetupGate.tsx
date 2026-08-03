@@ -36,7 +36,7 @@ export function SetupGate({ onReady }: { onReady: () => void }) {
             <div className="mono" style={{ fontSize: 12, fontWeight: 500, letterSpacing: ".1em" }}>UPTIME GUARD</div>
           </div>
           <h1>Create your account</h1>
-          <p className="lead">First-time setup — choose an owner password. You can enable two-factor authentication next, in Settings.</p>
+          <p className="lead">First-time setup - choose an owner password. You can enable two-factor authentication next, in Settings.</p>
 
           {error && (
             <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "10px 12px", marginBottom: 18, border: "1px solid var(--down)", borderRadius: 9, background: "var(--down-soft)" }}>

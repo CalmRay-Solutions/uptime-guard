@@ -178,7 +178,7 @@ export async function setupAccount(baseUrl: string, password: string): Promise<v
   setToken(token);
 }
 
-/** Public status page — no auth, same-origin relative fetch. */
+/** Public status page - no auth, same-origin relative fetch. */
 export async function getPublicStatus(slug: string): Promise<PublicStatusData> {
   const res = await fetch(`/api/public/status/${encodeURIComponent(slug)}`);
   if (!res.ok) throw new Error(res.status === 404 ? "not found" : `Request failed: ${res.status}`);

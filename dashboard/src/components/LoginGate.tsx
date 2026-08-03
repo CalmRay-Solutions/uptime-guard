@@ -11,7 +11,7 @@ export function LoginGate({ onReady }: { onReady: () => void }) {
   const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState(false);
 
-  // Demo instances accept a password alone — hide the authenticator field.
+  // Demo instances accept a password alone - hide the authenticator field.
   useEffect(() => {
     getMeta(baseUrl.trim()).then((m) => setDemo(m.demo)).catch(() => {});
   }, [baseUrl]);
@@ -40,13 +40,13 @@ export function LoginGate({ onReady }: { onReady: () => void }) {
             <div className="mono" style={{ fontSize: 12, fontWeight: 500, letterSpacing: ".1em" }}>UPTIME GUARD</div>
           </div>
           <h1>Sign in</h1>
-          <p className="lead">{demo ? "Live demo — explore with sample data." : "Owner access only. Sessions last 30 days."}</p>
+          <p className="lead">{demo ? "Live demo - explore with sample data." : "Owner access only. Sessions last 30 days."}</p>
 
           {demo && (
             <div style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "10px 12px", marginBottom: 18, border: "1px solid var(--border)", borderRadius: 9, background: "var(--up-soft)" }}>
               <span style={{ color: "var(--accent)", flex: "none", marginTop: 1 }}><Icon n="info" s={15} /></span>
               <div style={{ fontSize: 12.5, color: "var(--fg)" }}>
-                Demo password is <strong>demo</strong> — no authenticator needed. This instance uses sample data and resets periodically.
+                Demo password is <strong>demo</strong> - no authenticator needed. This instance uses sample data and resets periodically.
               </div>
             </div>
           )}

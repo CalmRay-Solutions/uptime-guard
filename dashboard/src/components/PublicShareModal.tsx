@@ -69,7 +69,7 @@ export function PublicShareModal({
           )}
 
           <div style={{ fontSize: 12, color: "var(--faint)" }}>
-            Shows service names, current status and 90-day uptime only — never URLs, IP addresses, or configuration.
+            Shows service names, current status and 90-day uptime only - never URLs, IP addresses, or configuration.
           </div>
         </div>
       </div>

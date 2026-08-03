@@ -11,7 +11,7 @@ const LABEL: Record<string, string> = {
 };
 
 function fmtPct(v: number | null): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return (v >= 99.995 ? 100 : v).toFixed(v >= 99.995 ? 0 : 2) + "%";
 }
 
@@ -79,7 +79,7 @@ export function PublicStatus({ slug }: { slug: string }) {
                 </div>
                 <div style={{ flex: 1 }} />
                 <div style={{ textAlign: "right", flex: "none" }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: COLOR[s.status] ?? "var(--fg)" }}>{LABEL[s.status] ?? "—"}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: COLOR[s.status] ?? "var(--fg)" }}>{LABEL[s.status] ?? "-"}</div>
                   <div className="mono" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 1 }}>{fmtPct(s.uptime_90d)} · 90d</div>
                 </div>
               </div>

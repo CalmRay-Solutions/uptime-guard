@@ -133,7 +133,7 @@ export function ServiceDetail({
               <div key={key} className="slacell">
                 <div className="k">{label}</div>
                 <div className="v" style={{ color: v == null ? "var(--faint)" : uptimeColor(v) }}>
-                  {sla == null ? <span className="sk" style={{ width: 52, height: 20, display: "inline-block" }} /> : v == null ? "—" : fmtPct(v)}
+                  {sla == null ? <span className="sk" style={{ width: 52, height: 20, display: "inline-block" }} /> : v == null ? "-" : fmtPct(v)}
                 </div>
               </div>
             );
@@ -189,7 +189,7 @@ export function ServiceDetail({
         {sla == null ? (
           <div style={{ padding: 14 }}><div className="sk" style={{ width: 220 }} /></div>
         ) : sla.incidents.length === 0 ? (
-          <div style={{ padding: 14, fontSize: 12.5, color: "var(--muted)" }}>No incidents recorded — nothing has gone down.</div>
+          <div style={{ padding: 14, fontSize: 12.5, color: "var(--muted)" }}>No incidents recorded - nothing has gone down.</div>
         ) : (
           sla.incidents.map((inc) => {
             const ongoing = inc.resolved_at == null;
