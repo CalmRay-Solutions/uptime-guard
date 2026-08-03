@@ -151,15 +151,31 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** Public login-page flags (demo mode). Never throws — falls back to non-demo. */
-export async function getMeta(baseUrl: string): Promise<{ demo: boolean }> {
+/** Public entry-screen flags (demo mode, first-run setup). Never throws. */
+export async function getMeta(baseUrl: string): Promise<{ demo: boolean; setup_required: boolean }> {
   try {
     const res = await fetch(`${baseUrl}/api/meta`);
-    if (!res.ok) return { demo: false };
-    return (await res.json()) as { demo: boolean };
+    if (!res.ok) return { demo: false, setup_required: false };
+    return (await res.json()) as { demo: boolean; setup_required: boolean };
   } catch {
-    return { demo: false };
+    return { demo: false, setup_required: false };
   }
+}
+
+/** First-run account creation. Stores the returned session token on success. */
+export async function setupAccount(baseUrl: string, password: string): Promise<void> {
+  setBaseUrl(baseUrl);
+  const res = await fetch(`${baseUrl}/api/setup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "setup failed");
+  }
+  const { token } = (await res.json()) as { token: string };
+  setToken(token);
 }
 
 /** Public status page — no auth, same-origin relative fetch. */

@@ -83,8 +83,9 @@ Dozens of monitors, checked every minute, with 90 days of history — comfortabl
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CalmRay-Solutions/uptime-guard)
 
-Cloudflare clones the repo, provisions the D1 database, builds the dashboard, and deploys the
-Worker. Afterwards, set your login secrets (below) and you're live.
+Cloudflare provisions the D1 database, builds the dashboard, and deploys the Worker. Then open the
+URL, **create your password on the first-run screen, and you're monitoring.** No secrets to set, no
+schema to run — the app initializes itself.
 
 ### Option B — from your terminal
 
@@ -92,25 +93,21 @@ Worker. Afterwards, set your login secrets (below) and you're live.
 git clone https://github.com/CalmRay-Solutions/uptime-guard.git
 cd uptime-guard/worker && npm install && npx wrangler login
 
-# Create the database, paste the printed id into wrangler.toml, init the schema
+# Create the database and paste the printed id into wrangler.toml
 npx wrangler d1 create uptime-guard
-npm run db:init:remote
-
-# Login secrets (auth:setup prints a TOTP secret + QR to scan)
-npm run auth:setup
-npx wrangler secret put PASSWORD
-npx wrangler secret put TOTP_SECRET
-npx wrangler secret put SESSION_SECRET
 
 # Build the dashboard + deploy the Worker in one command
 npx wrangler deploy
 ```
 
-Open the printed URL, sign in with your password + authenticator code, create a project, and add
-your first monitor. Checks start within 60 seconds.
+Open the printed URL — the first visit shows a **"create your account"** screen. Set a password,
+create a project, and add your first monitor. Checks start within 60 seconds. The database schema
+is created automatically, and the session secret is generated for you.
 
-**Optional — alerts:** set `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (or configure them in
-**Settings → Telegram**), and add VAPID keys for Web Push. Both are optional.
+**Optional, all from the dashboard's Settings — never required:**
+- **Two-factor auth** — scan a QR to add TOTP to your login.
+- **Telegram alerts** — paste a bot token + chat id (or set `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`).
+- **Web Push** — add VAPID keys for desktop notifications.
 
 ## Architecture
 

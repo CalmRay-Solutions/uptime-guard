@@ -6,6 +6,7 @@ dist/
 .dev.vars
 worker/wrangler.prod.toml
 worker/wrangler.demo.toml
+worker/wrangler.test.toml
 
 *.log
 .DS_Store

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, hasConfig, clearToken, type Project, type Service } from "./lib/api";
+import { api, hasConfig, clearToken, getMeta, getConfig, type Project, type Service } from "./lib/api";
 import { usePoll } from "./lib/usePoll";
 import { statusOf } from "./lib/derive";
 import { useStatusAlerts } from "./lib/useStatusAlerts";
 import { primeAudio } from "./lib/sound";
 import { enablePush, disablePush } from "./lib/push";
 import { LoginGate } from "./components/LoginGate";
+import { SetupGate } from "./components/SetupGate";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { Overview } from "./components/Overview";
@@ -62,6 +63,7 @@ export default function App() {
   const [sound, setSound] = useState(() => localStorage.getItem("ug_sound") !== "0");
   const [notify, setNotify] = useState(() => localStorage.getItem("ug_notify") === "1");
   const [navOpen, setNavOpen] = useState(false);
+  const [meta, setMeta] = useState<{ demo: boolean; setup_required: boolean } | null>(null);
   const toastT = useRef<number | undefined>(undefined);
 
   // --- Path routing: state is the source of truth; navigate() also writes the URL. ---
@@ -133,6 +135,11 @@ export default function App() {
   }, []);
 
   const onAuthError = useCallback(() => setAuthed(false), []);
+
+  // While logged out, learn whether this instance needs first-run setup or a login.
+  useEffect(() => {
+    if (!authed) getMeta(getConfig().baseUrl).then(setMeta).catch(() => setMeta({ demo: false, setup_required: false }));
+  }, [authed]);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -224,7 +231,11 @@ export default function App() {
   const publicSlug = statusSlugFromPath();
   if (publicSlug) return <PublicStatus slug={publicSlug} />;
 
-  if (!authed) return <LoginGate onReady={() => { setAuthed(true); navigate({ projectId: null, serviceId: null, screen: "overview" }, true); }} />;
+  if (!authed) {
+    if (meta === null) return null; // decide setup vs login once /api/meta returns
+    const onReady = () => { setMeta(null); setAuthed(true); navigate({ projectId: null, serviceId: null, screen: "overview" }, true); };
+    return meta.setup_required ? <SetupGate onReady={onReady} /> : <LoginGate onReady={onReady} />;
+  }
 
   const crumb =
     screen === "detail" ? (project?.name ?? "").toUpperCase() + " / SERVICE"

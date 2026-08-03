@@ -2,14 +2,17 @@ import { verifyTotp, timingSafeEqual, generateTotpSecret } from "./totp";
 import { createSessionToken, verifySessionToken } from "./session";
 import { performCheckConfirmed, ServiceRow, CheckResult } from "./checks";
 import { sendPush, type PushSub } from "./push";
+import schemaSql from "../schema.sql";
 
 export interface Env {
   DB: D1Database;
-  PASSWORD: string;
-  TOTP_SECRET: string;
-  SESSION_SECRET: string;
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_CHAT_ID: string;
+  // All optional: a fresh deploy configures the owner via the first-run setup screen
+  // and auto-generates a session secret. These env secrets are fallbacks/overrides.
+  PASSWORD?: string;
+  TOTP_SECRET?: string;
+  SESSION_SECRET?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
   ASSETS: Fetcher;
   VAPID_PUBLIC?: string;
   VAPID_PRIVATE?: string;
@@ -408,6 +411,69 @@ async function currentSessionEpoch(env: Env): Promise<number> {
   return value;
 }
 
+// Create every table on first use so a fresh deploy needs no schema step.
+// schema.sql is all CREATE ... IF NOT EXISTS, so this is idempotent. Cached per isolate.
+let schemaReady: Promise<void> | null = null;
+function ensureSchema(env: Env): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      const stmts = schemaSql
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("--"))
+        .join("\n")
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await env.DB.batch(stmts.map((s) => env.DB.prepare(s)));
+    })().catch((e) => {
+      schemaReady = null; // let the next request retry
+      throw e;
+    });
+  }
+  return schemaReady;
+}
+
+// --- Zero-secret auth: password hash, session secret, and setup state live in D1,
+//     with the env secrets (PASSWORD / SESSION_SECRET / TOTP_SECRET) as fallbacks. ---
+const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
+const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+async function pbkdf2(password: string, salt: Uint8Array): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: salt.buffer as ArrayBuffer, iterations: 100_000, hash: "SHA-256" }, key, 256);
+  return b64(new Uint8Array(bits));
+}
+/** Store as `salt:hash` (both base64). */
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return `${b64(salt)}:${await pbkdf2(password, salt)}`;
+}
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [saltB64, hashB64] = stored.split(":");
+  if (!saltB64 || !hashB64) return false;
+  return timingSafeEqual(await pbkdf2(password, fromB64(saltB64)), hashB64);
+}
+
+// Session secret: env if provided, else a generated one persisted in D1 (cached per isolate).
+let sessionSecretCache: string | null = null;
+async function getSessionSecret(env: Env): Promise<string> {
+  if (env.SESSION_SECRET) return env.SESSION_SECRET;
+  if (sessionSecretCache) return sessionSecretCache;
+  let s = await getSetting(env, "session_secret");
+  if (!s) {
+    s = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    await setSetting(env, "session_secret", s);
+  }
+  sessionSecretCache = s;
+  return s;
+}
+
+/** True when no owner password exists yet (fresh deploy → show the setup screen). */
+async function setupRequired(env: Env): Promise<boolean> {
+  if (env.PASSWORD) return false;
+  return !(await getSetting(env, "password_hash"));
+}
+
 /** Read one settings value, or null. */
 async function getSetting(env: Env, key: string): Promise<string | null> {
   const row = await env.DB.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first<{ value: string }>();
@@ -689,7 +755,7 @@ async function runDueChecks(env: Env): Promise<void> {
 
 async function requireAuth(req: Request, env: Env): Promise<Response | null> {
   const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-  const epoch = await verifySessionToken(token, env.SESSION_SECRET);
+  const epoch = await verifySessionToken(token, await getSessionSecret(env));
   if (epoch === null) return json({ error: "unauthorized" }, 401);
   if (epoch !== (await currentSessionEpoch(env))) return json({ error: "session revoked" }, 401);
   return null;
@@ -703,6 +769,9 @@ export default {
 
     const url = new URL(req.url);
     const parts = url.pathname.split("/").filter(Boolean); // ["api", ...]
+
+    // Ensure tables exist (no-op after the first request on each isolate).
+    await ensureSchema(env);
 
     // /api/auth/login — password + authenticator (TOTP) code, no session required
     if (parts[0] === "api" && parts[1] === "auth" && parts[2] === "login" && req.method === "POST") {
@@ -721,11 +790,16 @@ export default {
         }
 
         const body = await req.json<{ password: string; code: string }>();
-        const passwordOk = Boolean(body.password) && timingSafeEqual(body.password, env.PASSWORD);
-        // TOTP secret is editable from Settings (DB), falling back to the env secret.
-        const totpSecret = (await getSetting(env, "totp_secret")) || env.TOTP_SECRET;
-        // Demo instances skip the authenticator step; real deployments require TOTP.
-        const codeOk = env.DEMO_MODE === "1" ? passwordOk : passwordOk && (await verifyTotp(totpSecret, body.code ?? ""));
+        // Password: prefer the hash created at setup (D1), fall back to the env secret.
+        const passwordHash = await getSetting(env, "password_hash");
+        const passwordOk = Boolean(body.password) && (
+          passwordHash ? await verifyPassword(body.password, passwordHash)
+            : Boolean(env.PASSWORD) && timingSafeEqual(body.password, env.PASSWORD!)
+        );
+        // TOTP is editable from Settings (DB) with env fallback; when none is set, it's skipped.
+        const totpSecret = (await getSetting(env, "totp_secret")) || env.TOTP_SECRET || "";
+        const requireTotp = env.DEMO_MODE !== "1" && Boolean(totpSecret);
+        const codeOk = passwordOk && (!requireTotp || (await verifyTotp(totpSecret, body.code ?? "")));
         const success = passwordOk && codeOk;
 
         await env.DB.prepare(`INSERT INTO login_attempts (ip, at, ok) VALUES (?, ?, ?)`)
@@ -742,7 +816,7 @@ export default {
 
         // A good login clears this IP's failure streak.
         await env.DB.prepare(`DELETE FROM login_attempts WHERE ip = ? AND ok = 0`).bind(ip).run();
-        const token = await createSessionToken(env.SESSION_SECRET, await currentSessionEpoch(env));
+        const token = await createSessionToken(await getSessionSecret(env), await currentSessionEpoch(env));
         return json({ token });
       } catch (e) {
         return json({ error: e instanceof Error ? e.message : String(e) }, 500);
@@ -766,9 +840,20 @@ export default {
       return json({ ok: true });
     }
 
-    // /api/meta — public flags the login page adapts to (e.g. demo mode)
+    // /api/meta — public flags the entry screen adapts to (demo, first-run setup)
     if (parts[0] === "api" && parts[1] === "meta" && req.method === "GET") {
-      return json({ demo: env.DEMO_MODE === "1" });
+      return json({ demo: env.DEMO_MODE === "1", setup_required: await setupRequired(env) });
+    }
+
+    // /api/setup — first-run account creation (only while no password exists)
+    if (parts[0] === "api" && parts[1] === "setup" && req.method === "POST") {
+      if (env.DEMO_MODE === "1") return json({ error: "not available" }, 403);
+      if (!(await setupRequired(env))) return json({ error: "already set up" }, 403);
+      const b = await req.json<{ password?: string }>();
+      if (!b.password || b.password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
+      await setSetting(env, "password_hash", await hashPassword(b.password));
+      const token = await createSessionToken(await getSessionSecret(env), await currentSessionEpoch(env));
+      return json({ token });
     }
 
     // /api/public/status/:slug — read-only status page data, no auth
@@ -803,7 +888,7 @@ export default {
           .bind(String(next))
           .run();
         epochCache = { value: next, at: Date.now() };
-        const token = await createSessionToken(env.SESSION_SECRET, next);
+        const token = await createSessionToken(await getSessionSecret(env), next);
         return json({ token });
       }
 
@@ -1005,6 +1090,7 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Demo instances keep their seeded sample data frozen — no live checks or pruning.
     if (env.DEMO_MODE === "1") return;
+    await ensureSchema(env);
     if (event.cron === "0 3 * * *") {
       ctx.waitUntil((async () => { await rollupDaily(env); await pruneOldData(env); })());
     } else {

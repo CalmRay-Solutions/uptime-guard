@@ -5,6 +5,9 @@ name = "uptime-guard"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+# Bundle schema.sql as text so the Worker can create tables on first run.
+rules = [{ type = "Text", globs = ["**/*.sql"], fallthrough = true }]
+
 # Build the React dashboard before deploying (its output is served by the Worker).
 [build]
 command = "cd ../dashboard && npm install && npm run build"
