@@ -1,5 +1,6 @@
 // Uptime Guard service worker — installable PWA shell + status notifications.
-const CACHE = "ug-shell-v1";
+// Bump CACHE on each release so returning clients pick up new assets automatically.
+const CACHE = "ug-shell-v2";
 
 self.addEventListener("install", () => {
   // Activate this version immediately instead of waiting for old tabs to close.
@@ -47,7 +48,9 @@ async function cacheFirst(req) {
 async function networkFirst(req) {
   const cache = await caches.open(CACHE);
   try {
-    const res = await fetch(req);
+    // no-store bypasses the HTTP disk cache so a fresh index.html (and its new
+    // asset hashes) is fetched on every navigation — no stale UI after a deploy.
+    const res = await fetch(req, { cache: "no-store" });
     if (res.ok) cache.put("/", res.clone()); // keep the latest app shell for offline
     return res;
   } catch (err) {

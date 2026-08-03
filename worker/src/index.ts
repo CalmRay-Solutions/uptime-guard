@@ -1,4 +1,4 @@
-import { verifyTotp, timingSafeEqual } from "./totp";
+import { verifyTotp, timingSafeEqual, generateTotpSecret } from "./totp";
 import { createSessionToken, verifySessionToken } from "./session";
 import { performCheckConfirmed, ServiceRow, CheckResult } from "./checks";
 import { sendPush, type PushSub } from "./push";
@@ -245,18 +245,34 @@ async function notifyPush(env: Env, title: string, body: string, url: string): P
   }
 }
 
+/** Telegram config: settings table takes precedence over env fallback. One D1 read. */
+async function telegramConfig(env: Env): Promise<{ token: string; chat: string; thread: string | null }> {
+  const { results } = await env.DB.prepare(
+    `SELECT key, value FROM settings WHERE key IN ('telegram_bot_token','telegram_chat_id','telegram_thread_id')`
+  ).all<{ key: string; value: string }>();
+  const m = new Map((results ?? []).map((r) => [r.key, r.value]));
+  return {
+    token: m.get("telegram_bot_token") || env.TELEGRAM_BOT_TOKEN || "",
+    chat: m.get("telegram_chat_id") || env.TELEGRAM_CHAT_ID || "",
+    thread: m.get("telegram_thread_id") || null,
+  };
+}
+
 async function sendTelegram(env: Env, text: string): Promise<void> {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const { token, chat, thread } = await telegramConfig(env);
+  await postTelegram(token, chat, thread, text).catch(() => {});
+}
+
+/** Low-level Telegram send. Returns the API response so callers (e.g. a test) can report failure. */
+async function postTelegram(token: string, chat: string, thread: string | null, text: string): Promise<Response | null> {
+  if (!token || !chat) return null;
+  const body: Record<string, unknown> = { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true };
+  if (thread) body.message_thread_id = Number(thread);
+  return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT_ID,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-    }),
-  }).catch(() => {});
+    body: JSON.stringify(body),
+  });
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -390,6 +406,24 @@ async function currentSessionEpoch(env: Env): Promise<number> {
   const value = row ? Number(row.value) || 0 : 0;
   epochCache = { value, at: now };
   return value;
+}
+
+/** Read one settings value, or null. */
+async function getSetting(env: Env, key: string): Promise<string | null> {
+  const row = await env.DB.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first<{ value: string }>();
+  return row ? row.value : null;
+}
+/** Upsert a settings value; empty string deletes the row (clears the setting). */
+async function setSetting(env: Env, key: string, value: string): Promise<void> {
+  if (value === "") {
+    await env.DB.prepare(`DELETE FROM settings WHERE key = ?`).bind(key).run();
+    return;
+  }
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+  )
+    .bind(key, value)
+    .run();
 }
 
 /** Retention window in days (0 = keep forever), from the settings table. */
@@ -565,23 +599,76 @@ async function pruneOldData(env: Env): Promise<void> {
 }
 
 /** Routes under /api/settings: read + patch app settings. */
-async function handleSettingsRoute(parts: string[], req: Request, env: Env): Promise<Response | null> {
-  if (parts.length !== 2) return null;
-  if (req.method === "GET") {
-    return json({ retention_days: await getRetentionDays(env) });
-  }
-  if (req.method === "PATCH") {
-    const b = await req.json<{ retention_days?: number }>();
-    if (b.retention_days != null) {
-      const n = Math.max(0, Math.floor(Number(b.retention_days) || 0));
-      await env.DB.prepare(
-        `INSERT INTO settings (key, value) VALUES ('retention_days', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-      )
-        .bind(String(n))
-        .run();
+interface SettingsPatch {
+  retention_days?: number;
+  telegram_bot_token?: string;
+  telegram_chat_id?: string;
+  telegram_thread_id?: string;
+}
+
+/** Non-secret snapshot of settings for the dashboard (never returns raw token/TOTP secret). */
+async function settingsSnapshot(env: Env): Promise<Response> {
+  const tg = await telegramConfig(env);
+  const totpConfigured = Boolean((await getSetting(env, "totp_secret")) || env.TOTP_SECRET);
+  const tokenFromDb = await getSetting(env, "telegram_bot_token");
+  return json({
+    retention_days: await getRetentionDays(env),
+    telegram: {
+      has_token: Boolean(tg.token),
+      // Masked hint only — never the full token.
+      token_hint: tokenFromDb ? `…${tokenFromDb.slice(-4)}` : tg.token ? "set via env" : "",
+      chat_id: (await getSetting(env, "telegram_chat_id")) ?? "",
+      thread_id: (await getSetting(env, "telegram_thread_id")) ?? "",
+    },
+    totp: { configured: totpConfigured },
+  });
+}
+
+async function handleSettingsRoute(parts: string[], req: Request, env: Env, ctx: ExecutionContext): Promise<Response | null> {
+  // /api/settings
+  if (parts.length === 2) {
+    if (req.method === "GET") return settingsSnapshot(env);
+    if (req.method === "PATCH") {
+      const b = await req.json<SettingsPatch>();
+      if (b.retention_days != null) await setSetting(env, "retention_days", String(Math.max(0, Math.floor(Number(b.retention_days) || 0))));
+      if (b.telegram_bot_token !== undefined) await setSetting(env, "telegram_bot_token", b.telegram_bot_token.trim());
+      if (b.telegram_chat_id !== undefined) await setSetting(env, "telegram_chat_id", b.telegram_chat_id.trim());
+      if (b.telegram_thread_id !== undefined) await setSetting(env, "telegram_thread_id", b.telegram_thread_id.trim());
+      return settingsSnapshot(env);
     }
-    return json({ ok: true, retention_days: await getRetentionDays(env) });
+    return null;
+  }
+  if (parts.length !== 3) return null;
+
+  // /api/settings/telegram-test — send a test message with the saved config
+  if (parts[2] === "telegram-test" && req.method === "POST") {
+    const { token, chat, thread } = await telegramConfig(env);
+    if (!token || !chat) return json({ error: "Set a bot token and chat id first." }, 400);
+    const res = await postTelegram(token, chat, thread, "✅ <b>Uptime Guard</b>\nTest alert — your Telegram settings are working.").catch(() => null);
+    if (!res || !res.ok) {
+      const detail = res ? ((await res.json().catch(() => ({}))) as { description?: string }).description : "request failed";
+      return json({ error: `Telegram rejected the message: ${detail ?? "unknown error"}` }, 400);
+    }
+    return json({ ok: true });
+  }
+
+  // /api/settings/totp-new — mint a candidate secret (not saved until confirmed)
+  if (parts[2] === "totp-new" && req.method === "GET") {
+    const secret = generateTotpSecret();
+    const label = encodeURIComponent("Uptime Guard");
+    const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${label}&algorithm=SHA1&digits=6&period=30`;
+    return json({ secret, otpauth });
+  }
+
+  // /api/settings/totp — verify a code against the candidate secret, then save it
+  if (parts[2] === "totp" && req.method === "POST") {
+    const b = await req.json<{ secret: string; code: string }>();
+    if (!b.secret || !(await verifyTotp(b.secret, b.code ?? ""))) {
+      return json({ error: "That code doesn't match — check the time on your device and try again." }, 400);
+    }
+    await setSetting(env, "totp_secret", b.secret);
+    void ctx; // reserved for future cache invalidation
+    return json({ ok: true });
   }
   return null;
 }
@@ -635,8 +722,10 @@ export default {
 
         const body = await req.json<{ password: string; code: string }>();
         const passwordOk = Boolean(body.password) && timingSafeEqual(body.password, env.PASSWORD);
+        // TOTP secret is editable from Settings (DB), falling back to the env secret.
+        const totpSecret = (await getSetting(env, "totp_secret")) || env.TOTP_SECRET;
         // Demo instances skip the authenticator step; real deployments require TOTP.
-        const codeOk = env.DEMO_MODE === "1" ? passwordOk : passwordOk && (await verifyTotp(env.TOTP_SECRET, body.code ?? ""));
+        const codeOk = env.DEMO_MODE === "1" ? passwordOk : passwordOk && (await verifyTotp(totpSecret, body.code ?? ""));
         const success = passwordOk && codeOk;
 
         await env.DB.prepare(`INSERT INTO login_attempts (ip, at, ok) VALUES (?, ?, ?)`)
@@ -723,7 +812,7 @@ export default {
         if (pushRes) return pushRes;
       }
       if (parts[0] === "api" && parts[1] === "settings") {
-        const settingsRes = await handleSettingsRoute(parts, req, env);
+        const settingsRes = await handleSettingsRoute(parts, req, env, ctx);
         if (settingsRes) return settingsRes;
       }
 

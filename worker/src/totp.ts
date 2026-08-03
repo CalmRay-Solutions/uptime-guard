@@ -1,5 +1,23 @@
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+/** Encode bytes as unpadded base32 (RFC 4648) — used to mint new TOTP secrets. */
+export function base32Encode(bytes: Uint8Array): string {
+  let bits = "";
+  for (const b of bytes) bits += b.toString(2).padStart(8, "0");
+  let out = "";
+  for (let i = 0; i + 5 <= bits.length; i += 5) out += BASE32_ALPHABET[parseInt(bits.slice(i, i + 5), 2)];
+  const rem = bits.length % 5;
+  if (rem) out += BASE32_ALPHABET[parseInt(bits.slice(bits.length - rem).padEnd(5, "0"), 2)];
+  return out;
+}
+
+/** Generate a fresh random base32 TOTP secret (default 20 bytes = 160 bits). */
+export function generateTotpSecret(bytes = 20): string {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  return base32Encode(buf);
+}
+
 export function base32Decode(input: string): Uint8Array {
   const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, "");
   let bits = "";

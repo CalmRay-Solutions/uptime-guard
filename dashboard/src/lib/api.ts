@@ -21,6 +21,12 @@ export interface RecentCheck {
 
 export type CheckType = "http" | "tcp" | "dns" | "heartbeat" | "tls" | "domain";
 
+export interface AppSettings {
+  retention_days: number;
+  telegram: { has_token: boolean; token_hint: string; chat_id: string; thread_id: string };
+  totp: { configured: boolean };
+}
+
 export interface Incident {
   id: number;
   started_at: number;
@@ -206,9 +212,13 @@ export const api = {
 
   revokeSessions: () => request<{ token: string }>("/api/auth/revoke", { method: "POST" }),
 
-  getSettings: () => request<{ retention_days: number }>("/api/settings"),
-  updateSettings: (data: { retention_days: number }) =>
-    request<{ ok: boolean; retention_days: number }>("/api/settings", { method: "PATCH", body: JSON.stringify(data) }),
+  getSettings: () => request<AppSettings>("/api/settings"),
+  updateSettings: (data: Partial<{ retention_days: number; telegram_bot_token: string; telegram_chat_id: string; telegram_thread_id: string }>) =>
+    request<AppSettings>("/api/settings", { method: "PATCH", body: JSON.stringify(data) }),
+  telegramTest: () => request<{ ok: boolean }>("/api/settings/telegram-test", { method: "POST" }),
+  totpNew: () => request<{ secret: string; otpauth: string }>("/api/settings/totp-new"),
+  totpConfirm: (secret: string, code: string) =>
+    request<{ ok: boolean }>("/api/settings/totp", { method: "POST", body: JSON.stringify({ secret, code }) }),
 
   pushKey: () => request<{ key: string | null }>("/api/push/key"),
   pushSubscribe: (sub: { endpoint: string; p256dh: string; auth: string }) =>
