@@ -966,7 +966,17 @@ export default {
           return json({ ok: true });
         }
         if (req.method === "PATCH") {
-          const body = await req.json<{ public?: boolean }>();
+          const body = await req.json<{ public?: boolean; name?: string }>();
+          if (typeof body.name === "string") {
+            const name = body.name.trim();
+            if (!name) return json({ error: "name required" }, 400);
+            await env.DB.prepare(`UPDATE projects SET name = ? WHERE id = ?`).bind(name, projectId).run();
+            const row = await env.DB.prepare(`SELECT * FROM projects WHERE id = ?`).bind(projectId).first<{ public_slug: string | null }>();
+            if (!row) return json({ error: "not found" }, 404);
+            // The public page prints the project name, so drop its cached copy.
+            if (row.public_slug) ctx.waitUntil(caches.default.delete(`${url.origin}/api/public/status/${row.public_slug}`));
+            return json(row);
+          }
           if (typeof body.public !== "boolean") return json({ error: "nothing to update" }, 400);
           const existing = await env.DB.prepare(`SELECT public_slug FROM projects WHERE id = ?`)
             .bind(projectId)

@@ -223,6 +223,8 @@ export const api = {
   createProject: (name: string) =>
     request<Project>("/api/projects", { method: "POST", body: JSON.stringify({ name }) }),
   deleteProject: (id: string) => request<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
+  renameProject: (id: string, name: string) =>
+    request<Project>(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   setProjectPublic: (id: string, isPublic: boolean) =>
     request<Project>(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify({ public: isPublic }) }),
 

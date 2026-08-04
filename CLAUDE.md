@@ -119,7 +119,11 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: a fresh instance seeds one project, "My Project", from `ensureSchema`
+Most recent work: projects can be renamed and deleted from the dashboard (`ProjectModal`, opened by
+the "Project" button in the Overview bar; `PATCH /api/projects/:id` now takes `name`, delete
+cascades and asks for the name to be typed when the project still has monitors). Settings tabs wrap
+instead of scrolling on mobile - the old row-scroller kept the desktop `width:100%` per button and
+overflowed the screen. Before that: a fresh instance seeds one project, "My Project", from `ensureSchema`
 (`seedDefaultProject`, guarded by the `default_project_seeded` settings row so deleting every
 project does not bring it back). Before that: authenticator pairing became a required second step of the first-run wizard
 (`SetupGate` is a 2-step form; `/api/setup` takes `totp_secret` + `totp_code`). Released as

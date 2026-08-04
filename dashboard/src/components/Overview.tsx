@@ -3,6 +3,7 @@ import type { Service, CheckType } from "../lib/api";
 import { Icon } from "./Icon";
 import { Pill, StatusGlyph, HeartbeatBars } from "./ui";
 import { PublicShareModal } from "./PublicShareModal";
+import { ProjectModal } from "./ProjectModal";
 import {
   statusOf, statusColor, statusSoft, bySeverity, beats, summarize, uptimePct, respMs,
   targetOf, typeMeta, timeAgo, expiryDays, fmtDate, TYPES,
@@ -12,7 +13,7 @@ const PAGE = 10;
 
 export function Overview({
   services, loading, error, projectName, onOpen, onAdd, onRefresh,
-  isPublic, publicSlug, onSetPublic,
+  isPublic, publicSlug, onSetPublic, onRenameProject, onDeleteProject,
 }: {
   services: Service[] | null;
   loading: boolean;
@@ -24,9 +25,12 @@ export function Overview({
   isPublic: boolean;
   publicSlug: string | null;
   onSetPublic: (makePublic: boolean) => Promise<void>;
+  onRenameProject: (name: string) => Promise<void>;
+  onDeleteProject: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<CheckType | "all">("all");
   const [shareOpen, setShareOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
   const sorted = useMemo(() => (services ? services.slice().sort(bySeverity) : []), [services]);
   const sum = useMemo(() => summarize(services ?? []), [services]);
   const isEmpty = !loading && services != null && services.length === 0;
@@ -143,6 +147,9 @@ export function Overview({
           <button className="btn t-fast press" style={{ padding: "5px 10px" }} onClick={() => setShareOpen(true)} title="Public status page">
             <Icon n="globe" s={13} style={{ color: isPublic ? "var(--up)" : undefined }} />{isPublic ? "Public" : "Share"}
           </button>
+          <button className="btn t-fast press" style={{ padding: "5px 10px" }} onClick={() => setProjectOpen(true)} title="Rename or delete this project">
+            <Icon n="pencil" s={13} />Project
+          </button>
         </div>
 
         {loading ? (
@@ -244,6 +251,16 @@ export function Overview({
             );
           })}
         </div>
+      )}
+
+      {projectOpen && (
+        <ProjectModal
+          name={projectName}
+          serviceCount={services?.length ?? 0}
+          onClose={() => setProjectOpen(false)}
+          onRename={onRenameProject}
+          onDelete={onDeleteProject}
+        />
       )}
 
       {shareOpen && (

@@ -217,6 +217,32 @@ export default function App() {
     }
   }
 
+  async function renameProject(name: string) {
+    if (!project) return;
+    try {
+      const updated = await api.renameProject(project.id, name);
+      setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      say(`Renamed to “${updated.name}”`);
+    } catch {
+      say("Could not rename the project");
+    }
+  }
+
+  async function deleteProject() {
+    if (!project) return;
+    const gone = project.id;
+    try {
+      await api.deleteProject(gone);
+      const rest = projects.filter((p) => p.id !== gone);
+      setProjects(rest);
+      // Land on whatever project is left, or the empty state.
+      navigate({ projectId: rest[0]?.id ?? null, serviceId: null, screen: "overview" }, true);
+      say("Project deleted");
+    } catch {
+      say("Could not delete the project");
+    }
+  }
+
   async function createProject(name: string) {
     try {
       const p = await api.createProject(name);
@@ -285,6 +311,8 @@ export default function App() {
                 isPublic={!!project?.public && !!project?.public_slug}
                 publicSlug={project?.public_slug ?? null}
                 onSetPublic={setPublic}
+                onRenameProject={renameProject}
+                onDeleteProject={deleteProject}
               />
             );
             if (screen === "settings")

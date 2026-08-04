@@ -226,9 +226,11 @@ input,select{font-family:inherit}
 .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:760px){
   .settings2{flex-direction:column;gap:14px}
-  .settings2 .rail{flex-direction:row;width:auto;position:static;overflow-x:auto;gap:4px;padding-bottom:2px;-ms-overflow-style:none;scrollbar-width:none}
-  .settings2 .rail::-webkit-scrollbar{display:none}
-  .settings2 .rail button{white-space:nowrap;min-height:42px}
+  /* Tabs wrap onto as many rows as they need. The old row-scroller kept the
+     desktop width:100% on each button, so the rail overflowed the screen and
+     the off-screen tabs had no visible affordance. */
+  .settings2 .rail{flex-flow:row wrap;width:auto;position:static;gap:6px}
+  .settings2 .rail button{width:auto;flex:1 1 auto;justify-content:center;white-space:nowrap;min-height:42px}
   .tgrid{grid-template-columns:1fr}
 }
 .pubwrap{min-height:100vh;min-height:100dvh;display:flex;justify-content:center;padding:48px 18px;background:var(--bg)}
