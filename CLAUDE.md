@@ -51,7 +51,9 @@ Run from repo root:
 
 - `npm run build:dashboard` — build the SPA into the worker asset bundle
 - `npm run dev` — build dashboard, then `wrangler dev` on the worker
-- `npm run deploy` — `npx wrangler@4 deploy` (wrangler 4 is required for D1 auto-provisioning)
+- `npm run deploy` — `scripts/deploy-banner.mjs`: runs `npx wrangler@4 deploy` (wrangler 4 is
+  required for D1 auto-provisioning), streams its output, then prints the deployed dashboard URL
+  in a large ASCII banner. Extra args pass through: `npm run deploy -- -c worker/wrangler.prod.toml`
 
 Deploy a specific target from `worker/`: `npx wrangler deploy -c wrangler.prod.toml`
 (or `-c wrangler.demo.toml`). Set `CI=1` for non-interactive.
@@ -113,7 +115,9 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: login/setup screens opt out of the reserved scrollbar gutter
+Most recent work: `npm run deploy` now prints the dashboard URL in a big banner at the end of the
+deploy log (one-click button flow included; README documents setting the deploy command to
+`npm run deploy`). Before that: login/setup screens opt out of the reserved scrollbar gutter
 (`html:has(.login){scrollbar-gutter:auto}`) - it showed as a dark strip right of the
 `.aside` panel; deployed to prod + demo. Before that: demo GIF re-recorded at uniform
 frame size + `scrollbar-gutter: stable` fix (commit `5a32a06` / `b4aa2c1`); em-dashes

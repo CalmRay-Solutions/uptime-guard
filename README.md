@@ -85,9 +85,23 @@ Dozens of monitors, checked every minute, with 90 days of history - comfortably 
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CalmRay-Solutions/uptime-guard)
 
-Cloudflare provisions the D1 database, builds the dashboard, and deploys the Worker. Then open the
-URL, **create your password on the first-run screen, and you're monitoring.** No secrets to set, no
-schema to run - the app initializes itself.
+Cloudflare provisions the D1 database, builds the dashboard, and deploys the Worker. The deploy log
+ends with your dashboard URL in a banner you can't miss:
+
+```
+=============================================================
+| DEPLOYED - OPEN YOUR DASHBOARD AT:                        |
+|                                                           |
+|   >>  https://uptime-guard.your-name.workers.dev          |
+|                                                           |
+| First visit walks you through creating the owner account. |
+=============================================================
+```
+
+Open it, **create your password on the first-run screen, and you're monitoring.** No secrets to set,
+no schema to run - the app initializes itself. (The banner comes from the `npm run deploy` script;
+if the deploy step in the Cloudflare setup screen says `npx wrangler deploy`, change it to
+`npm run deploy` to get it.)
 
 ### Option B - from your terminal
 
@@ -99,7 +113,8 @@ cd uptime-guard/worker && npm install && npx wrangler login
 npx wrangler d1 create uptime-guard
 
 # Build the dashboard + deploy the Worker in one command
-npx wrangler deploy
+# (prints your dashboard URL in a banner at the end)
+cd .. && npm run deploy
 ```
 
 Open the printed URL - the first visit shows a **"create your account"** screen. Set a password,
