@@ -62,7 +62,7 @@ Deploy a specific target from `worker/`: `npx wrangler deploy -c wrangler.prod.t
 
 `projects` (public flag + public_slug) · `services` · `checks` · `incidents`
 (last_reminder_at, reminder_level) · `push_subs` · `settings` (key/value, holds
-session_secret + telegram config) · `daily_stats` (SLA rollups) · `login_attempts`
+session_secret + telegram config + `default_project_seeded`) · `daily_stats` (SLA rollups) · `login_attempts`
 (rate limiting). Defined in `worker/schema.sql`; applied on first request / cron via
 `ensureSchema`.
 
@@ -119,7 +119,9 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: authenticator pairing is now a required second step of the first-run wizard
+Most recent work: a fresh instance seeds one project, "My Project", from `ensureSchema`
+(`seedDefaultProject`, guarded by the `default_project_seeded` settings row so deleting every
+project does not bring it back). Before that: authenticator pairing became a required second step of the first-run wizard
 (`SetupGate` is a 2-step form; `/api/setup` takes `totp_secret` + `totp_code`). Released as
 `v1.0.0-beta.1` (GitHub pre-release). Before that: `npm run deploy` prints the dashboard URL in a big banner at the end of the
 deploy log (one-click button flow included; README documents setting the deploy command to

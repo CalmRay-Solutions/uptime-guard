@@ -425,12 +425,29 @@ function ensureSchema(env: Env): Promise<void> {
         .map((s) => s.trim())
         .filter(Boolean);
       await env.DB.batch(stmts.map((s) => env.DB.prepare(s)));
+      await seedDefaultProject(env);
     })().catch((e) => {
       schemaReady = null; // let the next request retry
       throw e;
     });
   }
   return schemaReady;
+}
+
+/**
+ * A fresh instance starts with one project, "My Project", so the first monitor
+ * has somewhere to go. The marker row means this happens once ever: deleting
+ * every project later does not bring it back.
+ */
+async function seedDefaultProject(env: Env): Promise<void> {
+  if (await getSetting(env, "default_project_seeded")) return;
+  const existing = await env.DB.prepare(`SELECT id FROM projects LIMIT 1`).first<{ id: string }>();
+  if (!existing) {
+    await env.DB.prepare(`INSERT INTO projects (id, name, created_at) VALUES (?, ?, ?)`)
+      .bind(uid(), "My Project", Date.now())
+      .run();
+  }
+  await setSetting(env, "default_project_seeded", "1");
 }
 
 // --- Zero-secret auth: password hash, session secret, and setup state live in D1,
