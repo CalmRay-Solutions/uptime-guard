@@ -18,7 +18,7 @@ no VPS, no container, no monthly bill. Just a Cloudflare Worker, a database, and
 
 ### [▶ Try the live demo](https://vigil-demo.calmray.team) &nbsp;·&nbsp; password `demo` &nbsp;·&nbsp; [see a public status page](https://vigil-demo.calmray.team/status/demo)
 
-<img src="./docs/uptime-guard-demo.gif" alt="Uptime Guard walkthrough" width="820">
+<img src="./docs/uptime-guard-walkthrough.gif" alt="Uptime Guard walkthrough" width="820">
 
 </div>
 

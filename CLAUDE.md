@@ -42,7 +42,8 @@ dashboard/         React SPA (built into worker asset bundle)
   src/components/  Overview, ServiceDetail, Settings, LoginGate, SetupGate, PublicStatus, ...
   src/lib/         api.ts, derive.ts, usePoll.ts, useStatusAlerts.ts, push.ts, sound.ts
 wrangler.toml      ROOT config for the "Deploy to Cloudflare" button (auto-provisions D1)
-docs/              README assets: logo.svg, uptime-guard-demo.gif, screenshots/
+docs/              README assets: logo.svg, uptime-guard-walkthrough.gif, screenshots/
+                   (renaming the GIF is how you bust GitHub's camo image cache)
 ```
 
 ## Commands
