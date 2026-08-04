@@ -113,8 +113,11 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: demo GIF re-recorded at uniform frame size + `scrollbar-gutter: stable`
-fix (commit `5a32a06` / `b4aa2c1`); em-dashes removed from dashboard UI.
+Most recent work: login/setup screens opt out of the reserved scrollbar gutter
+(`html:has(.login){scrollbar-gutter:auto}`) - it showed as a dark strip right of the
+`.aside` panel; deployed to prod + demo. Before that: demo GIF re-recorded at uniform
+frame size + `scrollbar-gutter: stable` fix (commit `5a32a06` / `b4aa2c1`); em-dashes
+removed from dashboard UI.
 
 Known open items / ideas (not committed): set GitHub social-preview image (UI-only),
 rotate any Telegram bot token that was shared in chat.

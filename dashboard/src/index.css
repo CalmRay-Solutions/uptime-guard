@@ -37,6 +37,9 @@
 *{box-sizing:border-box}
 html,body,#root{margin:0;padding:0;height:100%}
 html{scrollbar-gutter:stable}  /* reserve the scrollbar gutter so page width doesn't shift */
+/* login/setup fill the viewport edge to edge - the reserved gutter would show as a
+   dark strip to the right of the aside panel, so drop it on those screens */
+html:has(.login){scrollbar-gutter:auto}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;letter-spacing:-0.005em;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden;
   transition:background .3s var(--ease),color .3s var(--ease)}
