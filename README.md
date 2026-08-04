@@ -98,8 +98,9 @@ ends with your dashboard URL in a banner you can't miss:
 =============================================================
 ```
 
-Open it, **create your password on the first-run screen, and you're monitoring.** No secrets to set,
-no schema to run - the app initializes itself. (The banner comes from the `npm run deploy` script;
+Open it and the first-run wizard walks you through two steps: **set an owner password, then pair an
+authenticator app.** Both are required, so the instance is never live with a single factor. No
+secrets to set, no schema to run - the app initializes itself. (The banner comes from the `npm run deploy` script;
 if the deploy step in the Cloudflare setup screen says `npx wrangler deploy`, change it to
 `npm run deploy` to get it.)
 
@@ -117,14 +118,22 @@ npx wrangler d1 create uptime-guard
 cd .. && npm run deploy
 ```
 
-Open the printed URL - the first visit shows a **"create your account"** screen. Set a password,
-create a project, and add your first monitor. Checks start within 60 seconds. The database schema
-is created automatically, and the session secret is generated for you.
+Open the printed URL - the first visit shows a **"create your account"** wizard. Set a password,
+scan the authenticator QR (keep the key it shows: it is your way back in if you lose the device),
+then create a project and add your first monitor. Checks start within 60 seconds. The database
+schema is created automatically, and the session secret is generated for you.
 
 **Optional, all from the dashboard's Settings - never required:**
-- **Two-factor auth** - scan a QR to add TOTP to your login.
+- **Re-pair two-factor auth** - scan a new QR to move TOTP to another device.
 - **Telegram alerts** - paste a bot token + chat id (or set `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`).
 - **Web Push** - add VAPID keys for desktop notifications.
+
+**Lost your authenticator?** You own the database, so you can clear the pairing and sign in with the
+password alone until you set up a new one:
+
+```bash
+npx wrangler d1 execute uptime-guard --remote --command "DELETE FROM settings WHERE key='totp_secret'"
+```
 
 ## Architecture
 

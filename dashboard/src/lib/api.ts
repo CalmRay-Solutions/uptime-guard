@@ -162,13 +162,31 @@ export async function getMeta(baseUrl: string): Promise<{ demo: boolean; setup_r
   }
 }
 
-/** First-run account creation. Stores the returned session token on success. */
-export async function setupAccount(baseUrl: string, password: string): Promise<void> {
+/** Candidate authenticator secret for the first-run wizard (no auth yet). */
+export async function setupTotpNew(baseUrl: string): Promise<{ secret: string; otpauth: string }> {
+  const res = await fetch(`${baseUrl}/api/setup/totp-new`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Could not start authenticator setup");
+  }
+  return (await res.json()) as { secret: string; otpauth: string };
+}
+
+/**
+ * First-run account creation. Password and authenticator are both required.
+ * Stores the returned session token on success.
+ */
+export async function setupAccount(
+  baseUrl: string,
+  password: string,
+  totpSecret: string,
+  totpCode: string
+): Promise<void> {
   setBaseUrl(baseUrl);
   const res = await fetch(`${baseUrl}/api/setup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, totp_secret: totpSecret, totp_code: totpCode }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

@@ -845,12 +845,33 @@ export default {
       return json({ demo: env.DEMO_MODE === "1", setup_required: await setupRequired(env) });
     }
 
-    // /api/setup — first-run account creation (only while no password exists)
+    // /api/setup/totp-new — mint a candidate authenticator secret for the setup
+    // wizard. Unauthenticated on purpose: there is no account yet, and the secret
+    // is worthless until /api/setup saves it alongside the owner password.
+    if (parts[0] === "api" && parts[1] === "setup" && parts[2] === "totp-new" && req.method === "GET") {
+      if (env.DEMO_MODE === "1") return json({ error: "not available" }, 403);
+      if (!(await setupRequired(env))) return json({ error: "already set up" }, 403);
+      const secret = generateTotpSecret();
+      const label = encodeURIComponent("Uptime Guard");
+      return json({
+        secret,
+        otpauth: `otpauth://totp/${label}?secret=${secret}&issuer=${label}&algorithm=SHA1&digits=6&period=30`,
+      });
+    }
+
+    // /api/setup — first-run account creation (only while no password exists).
+    // Password AND authenticator are both required: the account is never created
+    // with one factor, so there is no window where the owner is password-only.
     if (parts[0] === "api" && parts[1] === "setup" && req.method === "POST") {
       if (env.DEMO_MODE === "1") return json({ error: "not available" }, 403);
       if (!(await setupRequired(env))) return json({ error: "already set up" }, 403);
-      const b = await req.json<{ password?: string }>();
+      const b = await req.json<{ password?: string; totp_secret?: string; totp_code?: string }>();
       if (!b.password || b.password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
+      if (!b.totp_secret) return json({ error: "Authenticator setup is required." }, 400);
+      if (!(await verifyTotp(b.totp_secret, b.totp_code ?? ""))) {
+        return json({ error: "That code doesn't match - check the time on your device and try again." }, 400);
+      }
+      await setSetting(env, "totp_secret", b.totp_secret);
       await setSetting(env, "password_hash", await hashPassword(b.password));
       const token = await createSessionToken(await getSessionSecret(env), await currentSessionEpoch(env));
       return json({ token });

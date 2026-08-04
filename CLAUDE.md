@@ -106,8 +106,12 @@ Shipped and live on prod + demo:
 - Retry-burst flap prevention + escalating Telegram re-alerts; configurable retention
 - Incident history + real SLA windows (24h/7d/30d/90d) + MTTR via daily rollups
 - Public status page (`/status/:slug`), edge-cached, per-project public toggle
-- Auth: password (PBKDF2) + optional TOTP, login rate-limiting + progressive delay,
-  session revocation; zero-secret first-run setup wizard (`/api/setup`, `/api/meta`)
+- Auth: password (PBKDF2) + TOTP, login rate-limiting + progressive delay,
+  session revocation; zero-secret first-run setup wizard (`/api/setup`, `/api/meta`).
+  TOTP is **mandatory** in that wizard: two steps (password, then authenticator), and
+  `/api/setup` refuses to create the account without a verified 6-digit code.
+  `/api/setup/totp-new` mints the candidate secret unauthenticated, gated on
+  `setupRequired`. Recovery from a lost device = delete the `totp_secret` settings row.
 - Settings UI: notifications, Telegram (bot token / chat / thread), security/TOTP,
   data retention, appearance
 - PWA + Web Push desktop notifications; client-side path routing; IP masking in UI;
@@ -115,7 +119,9 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: `npm run deploy` now prints the dashboard URL in a big banner at the end of the
+Most recent work: authenticator pairing is now a required second step of the first-run wizard
+(`SetupGate` is a 2-step form; `/api/setup` takes `totp_secret` + `totp_code`). Released as
+`v1.0.0-beta.1` (GitHub pre-release). Before that: `npm run deploy` prints the dashboard URL in a big banner at the end of the
 deploy log (one-click button flow included; README documents setting the deploy command to
 `npm run deploy`). Before that: login/setup screens opt out of the reserved scrollbar gutter
 (`html:has(.login){scrollbar-gutter:auto}`) - it showed as a dark strip right of the
