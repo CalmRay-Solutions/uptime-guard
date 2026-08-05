@@ -28,4 +28,4 @@ not_found_handling = "single-page-application"
 binding = "DB"
 database_name = "uptime-guard"
 
-# Secrets are optional — a fresh deploy sets up the owner on first visit.
+# Secrets are optional - a fresh deploy sets up the owner on first visit.

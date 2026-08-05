@@ -727,7 +727,7 @@ async function handleSettingsRoute(parts: string[], req: Request, env: Env, ctx:
   if (parts[2] === "telegram-test" && req.method === "POST") {
     const { token, chat, thread } = await telegramConfig(env);
     if (!token || !chat) return json({ error: "Set a bot token and chat id first." }, 400);
-    const res = await postTelegram(token, chat, thread, "✅ <b>Uptime Guard</b>\nTest alert — your Telegram settings are working.").catch(() => null);
+    const res = await postTelegram(token, chat, thread, "✅ <b>Uptime Guard</b>\nTest alert - your Telegram settings are working.").catch(() => null);
     if (!res || !res.ok) {
       const detail = res ? ((await res.json().catch(() => ({}))) as { description?: string }).description : "request failed";
       return json({ error: `Telegram rejected the message: ${detail ?? "unknown error"}` }, 400);
@@ -747,7 +747,7 @@ async function handleSettingsRoute(parts: string[], req: Request, env: Env, ctx:
   if (parts[2] === "totp" && req.method === "POST") {
     const b = await req.json<{ secret: string; code: string }>();
     if (!b.secret || !(await verifyTotp(b.secret, b.code ?? ""))) {
-      return json({ error: "That code doesn't match — check the time on your device and try again." }, 400);
+      return json({ error: "That code doesn't match - check the time on your device and try again." }, 400);
     }
     await setSetting(env, "totp_secret", b.secret);
     void ctx; // reserved for future cache invalidation
