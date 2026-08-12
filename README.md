@@ -6,8 +6,9 @@
 
 ### Uptime monitoring with **zero servers**. Runs 100% on Cloudflare. **Free.**
 
-Monitor your websites, APIs, TCP ports, DNS, TLS certificates, domains and cron jobs -
-no VPS, no container, no monthly bill. Just a Cloudflare Worker, a database, and a dashboard.
+Monitor your websites, APIs, TCP ports, DNS, TLS certificates, domains, cron jobs and multi-step
+scripted flows - no VPS, no container, no monthly bill. Just a Cloudflare Worker, a database, and a
+dashboard.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CalmRay-Solutions/uptime-guard)
 
@@ -57,7 +58,7 @@ Dozens of monitors, checked every minute, with 90 days of history - comfortably 
 
 | | |
 |---|---|
-| **6 monitor types** | HTTP(S), TCP port, DNS record, TLS certificate expiry, domain (registrar) expiry, and heartbeat (dead-man's switch) |
+| **7 monitor types** | HTTP(S), TCP port, DNS record, TLS certificate expiry, domain (registrar) expiry, heartbeat (dead-man's switch), and multi-step custom scripts |
 | **Alerts that escalate** | Telegram **+** desktop Web Push on down/recovery, with widening re-alerts (5m → 10m → 20m → 40m → hourly) and total downtime on recovery |
 | **No false alarms** | A single failed check is re-confirmed in seconds before it ever pages you |
 | **Real reliability data** | Per-service 24h / 7d / 30d / 90d uptime, incident history, and mean-time-to-recovery |
@@ -170,6 +171,28 @@ npx wrangler d1 execute uptime-guard --remote --command "DELETE FROM settings WH
 - **Domain expiry** - registrar expiry via RDAP, warns before it lapses.
 - **Heartbeat** - a dead-man's switch: your cron hits a unique `/ping/<token>` URL each run; a
   missing ping within the grace window flips it down.
+- **Custom script** - chain up to 10 requests, pass values between them, assert on each. For flows a
+  single request can't express: log in, then read an authenticated endpoint.
+
+```
+POST https://api.example.com/auth
+header content-type: application/json
+body {"user":"probe","pass":"..."}
+expect status 200
+capture token = json data.token
+
+GET https://api.example.com/orders
+header authorization: Bearer {{token}}
+expect status 200
+expect json orders.count > 0
+expect time < 800ms
+```
+
+Workers can't `eval`, so this is a declarative format the Worker interprets - not JavaScript, and
+nothing arbitrary executes. The first failed assertion marks the monitor down and names the step:
+`step 2 (GET api.example.com/orders): orders.count = 0, expected > 0`. Directives: `header`, `body`,
+`expect status|time|body|json`, `capture <name> = json|header|status|body`, `#` comments. A step
+with no `expect status` defaults to requiring 2xx, and the whole run shares one timeout.
 
 ## Security
 

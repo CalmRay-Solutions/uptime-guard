@@ -1,7 +1,8 @@
 import { connect } from "cloudflare:sockets";
 import { getCertExpiry } from "./tls";
+import { runScript } from "./script";
 
-export type CheckType = "http" | "tcp" | "dns" | "heartbeat" | "tls" | "domain";
+export type CheckType = "http" | "tcp" | "dns" | "heartbeat" | "tls" | "domain" | "script";
 
 export interface ServiceRow {
   id: string;
@@ -59,6 +60,9 @@ interface TlsConfig {
 interface DomainConfig {
   domain?: string;
   warn_days?: number;
+}
+interface ScriptConfig {
+  script?: string;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -332,6 +336,25 @@ async function checkDomain(svc: ServiceRow): Promise<CheckResult> {
 }
 
 /**
+ * Custom script: a sequence of requests with assertions (see script.ts). The whole
+ * run shares one timeout budget, and the reported response time is the total across
+ * every step, so the latency chart tracks the end-to-end flow rather than one call.
+ */
+async function checkScript(svc: ServiceRow): Promise<CheckResult> {
+  const cfg = parseConfig<ScriptConfig>(svc);
+  if (!cfg.script?.trim()) {
+    return { status: "down", statusCode: null, responseTime: null, error: "script not configured" };
+  }
+  const run = await runScript(cfg.script, svc.timeout_ms);
+  return {
+    status: run.ok ? "up" : "down",
+    statusCode: run.statusCode,
+    responseTime: run.responseTime,
+    error: run.error,
+  };
+}
+
+/**
  * Heartbeat is passive: status is derived from how long ago the last ping arrived.
  * grace_seconds defaults to 2x the expected interval.
  */
@@ -353,7 +376,7 @@ export function evaluateHeartbeat(svc: ServiceRow, now = Date.now()): CheckResul
   return { status: "up", statusCode: null, responseTime: null, error: null };
 }
 
-/** Active check dispatch for http/tcp/dns. Heartbeat is handled via evaluateHeartbeat. */
+/** Active check dispatch for http/tcp/dns/tls/domain/script. Heartbeat is handled via evaluateHeartbeat. */
 export async function performCheck(svc: ServiceRow): Promise<CheckResult> {
   switch (svc.check_type) {
     case "tcp":
@@ -364,6 +387,8 @@ export async function performCheck(svc: ServiceRow): Promise<CheckResult> {
       return checkTls(svc);
     case "domain":
       return checkDomain(svc);
+    case "script":
+      return checkScript(svc);
     case "heartbeat":
       return evaluateHeartbeat(svc);
     case "http":

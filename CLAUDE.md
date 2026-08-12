@@ -6,7 +6,7 @@
 > section and the "Current Status" block in the same change. Treat a stale entry
 > here as a bug. Do not record secrets (tokens, account IDs, real database IDs).**
 
-Last reviewed: 2026-08-04
+Last reviewed: 2026-08-12
 
 ---
 
@@ -29,6 +29,7 @@ plain CSS (no Tailwind), TypeScript throughout. Auth is zero-dependency Web Cryp
 worker/            Cloudflare Worker (API + cron + static asset serving)
   src/index.ts     Main entry: routing, auth, cron scheduler, settings, public status
   src/checks.ts    Check execution + retry-burst confirmation; status up|down|cf_protected
+  src/script.ts    Custom-script monitors: parser + runner for the step DSL
   src/tls.ts       Raw-socket TLS handshake (cert expiry)
   src/session.ts   HMAC session token create/verify (returns epoch for revocation)
   src/totp.ts      TOTP + base32 secret generation
@@ -99,11 +100,23 @@ session_secret + telegram config + `default_project_seeded`) · `daily_stats` (S
   or hard-reload, or clients serve stale assets.
 - **Flap prevention:** `performCheckConfirmed` does a short retry-burst before flipping
   status; escalating re-alerts back off (5/10/20/40/60 min).
+- **Script monitors are NOT JavaScript:** Workers disable `eval`/`new Function`, so custom
+  scripts are a declarative line format (`script.ts`) the Worker interprets. Never try to
+  execute user-supplied JS. Limits: 10 steps, 8000 chars, one shared timeout budget
+  (default 30s, max 60s) across the whole run. Scripts are parsed in `buildScript` at save
+  time so a syntax error is a 400, not a silently failing monitor.
+- **Local API testing:** `wrangler dev` reads `.dev.vars` (the user's real password and
+  Telegram token) and `--var` does NOT override it - use `--env-file <path>` with throwaway
+  creds and blank Telegram vars, or a local down-check will alert the user's real chat.
+  Also: killing the wrangler shell does not kill `workerd` on Windows, and the orphan keeps
+  port 8788, so a "wrong password" against a fresh dev server usually means a stale instance
+  is answering. Kill by matching `workerd.exe` / the config name before retrying.
 
 ## Current Status  *(update this block on every functional change)*
 
 Shipped and live on prod + demo:
-- Monitors: HTTP, TCP, DNS, heartbeat (push-ping), TLS cert expiry, domain expiry
+- Monitors: HTTP, TCP, DNS, heartbeat (push-ping), TLS cert expiry, domain expiry,
+  custom script (multi-step declarative flows)
 - Retry-burst flap prevention + escalating Telegram re-alerts; configurable retention
 - Incident history + real SLA windows (24h/7d/30d/90d) + MTTR via daily rollups
 - Public status page (`/status/:slug`), edge-cached, per-project public toggle
@@ -120,7 +133,14 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: projects can be renamed and deleted from the dashboard (`ProjectModal`, opened by
+Most recent work: a seventh monitor type, **custom script**. `worker/src/script.ts` parses a
+line-based DSL (`GET <url>` starts a step; `header`, `body`, `expect status|time|body|json`,
+`capture <name> = json|header|status|body`, `#` comments, `{{name}}` interpolation) and runs the
+steps in order, sharing one timeout budget. Any failed assertion marks the monitor down with an
+error naming the step: `step 2 (GET api.example.com/orders): orders.count = 0, expected > 0`. A step
+without `expect status` defaults to 2xx. Wired through `buildScript` (validates at save time),
+`checkScript`, `TYPES`/`typeMeta`, a textarea + directive cheatsheet in `AddServiceModal`, and a
+read-only Script section on `ServiceDetail`. Before that: projects can be renamed and deleted from the dashboard (`ProjectModal`, opened by
 the "Project" button in the Overview bar; `PATCH /api/projects/:id` now takes `name`, delete
 cascades and asks for the name to be typed when the project still has monitors). Settings tabs wrap
 instead of scrolling on mobile - the old row-scroller kept the desktop `width:100%` per button and

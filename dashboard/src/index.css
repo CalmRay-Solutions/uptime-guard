@@ -183,6 +183,7 @@ input,select{font-family:inherit}
 .inp{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--fg);font-size:14px}
 .inp:focus{outline:2px solid var(--accent);outline-offset:1px}
 .inp.mono{font-family:var(--mono)}
+textarea.inp{display:block;tab-size:2}
 .login .aside{flex:1 1 380px;border-left:1px solid var(--border);background:var(--surface-2);padding:56px 44px;display:flex;flex-direction:column;justify-content:center;gap:22px}
 
 /* modal + toast */

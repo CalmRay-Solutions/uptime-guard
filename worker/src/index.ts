@@ -1,6 +1,7 @@
 import { verifyTotp, timingSafeEqual, generateTotpSecret } from "./totp";
 import { createSessionToken, verifySessionToken } from "./session";
 import { performCheckConfirmed, ServiceRow, CheckResult } from "./checks";
+import { parseScript } from "./script";
 import { sendPush, type PushSub } from "./push";
 import schemaSql from "../schema.sql";
 
@@ -64,6 +65,8 @@ interface CreateServiceBody {
   grace_seconds?: number;
   // tls / domain
   warn_days?: number;
+  // script
+  script?: string;
 }
 
 interface PreparedService {
@@ -145,6 +148,30 @@ function buildDomain(body: CreateServiceBody, base: ServiceBase): PreparedServic
   return { ...base, url: `domain://${domain}`, config: JSON.stringify(config) };
 }
 
+/**
+ * Script monitors carry their source in config and get a longer default timeout,
+ * since one run can make several requests. The script is parsed here so a typo is
+ * rejected at save time instead of showing up as a failing check an hour later.
+ */
+function buildScript(body: CreateServiceBody, base: ServiceBase): PreparedService {
+  const script = body.script?.trim();
+  if (!script) throw new Error("script required");
+  let steps;
+  try {
+    steps = parseScript(script);
+  } catch (e) {
+    throw new Error(`script: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const timeout = Math.min(Math.max(body.timeout_ms ?? 30000, 1000), 60000);
+  const plural = steps.length === 1 ? "" : "s";
+  return {
+    ...base,
+    timeout_ms: timeout,
+    url: `script:${steps.length} step${plural} · ${steps[0].method} ${steps[0].url}`.slice(0, 160),
+    config: JSON.stringify({ script }),
+  };
+}
+
 const SERVICE_BUILDERS: Record<string, TypeBuilder> = {
   http: buildHttp,
   tcp: buildTcp,
@@ -152,6 +179,7 @@ const SERVICE_BUILDERS: Record<string, TypeBuilder> = {
   heartbeat: buildHeartbeat,
   tls: buildTls,
   domain: buildDomain,
+  script: buildScript,
 };
 
 /** Validates a create-service body per type and normalizes it into DB columns. */
@@ -285,6 +313,7 @@ const TYPE_LABEL: Record<string, string> = {
   heartbeat: "Heartbeat",
   tls: "TLS",
   domain: "Domain",
+  script: "Script",
 };
 
 /** Gap before the next down-reminder, by how many were already sent. Widens then caps (5m→10m→20m→40m→hourly). */

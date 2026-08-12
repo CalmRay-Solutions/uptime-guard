@@ -3,12 +3,38 @@ import { api, type CheckType, type CreateServiceInput, type Service } from "../l
 import { TYPES, cfg } from "../lib/derive";
 import { Icon } from "./Icon";
 
-const STEP: Record<CheckType, string> = { http: "REQUEST", tcp: "CONNECTION", dns: "RECORD", tls: "CERTIFICATE", domain: "REGISTRAR", heartbeat: "SCHEDULE" };
+const STEP: Record<CheckType, string> = { http: "REQUEST", tcp: "CONNECTION", dns: "RECORD", tls: "CERTIFICATE", domain: "REGISTRAR", heartbeat: "SCHEDULE", script: "SCRIPT" };
 const INTERVALS: [string, string, number][] = [["1m", "1 min", 60], ["5m", "5 min", 300], ["15m", "15 min", 900], ["daily", "Daily", 86400]];
+
+const SCRIPT_PLACEHOLDER = `GET https://api.example.com/auth
+header content-type: application/json
+body {"user":"probe","pass":"..."}
+expect status 200
+capture token = json data.token
+
+POST https://api.example.com/orders
+header authorization: Bearer {{token}}
+expect status 200
+expect json orders.count > 0
+expect time < 800ms`;
+
+// One line per directive. Kept next to the editor so the format is discoverable
+// without leaving the modal.
+const SCRIPT_HELP: [string, string][] = [
+  ["GET | POST | PUT | PATCH | DELETE | HEAD <url>", "starts a step"],
+  ["header <name>: <value>", "repeatable"],
+  ["body <text>", "repeat to add lines"],
+  ["expect status 200  ·  200-299", "defaults to 2xx"],
+  ["expect time < 800ms", ""],
+  ["expect body contains | not contains | matches <text>", ""],
+  ["expect json <path> = != > < >= <= contains exists <value>", ""],
+  ["capture <name> = json <path> | header <name> | status | body", "reuse as {{name}}"],
+  ["# comment", ""],
+];
 
 const DEFAULT_FORM = {
   name: "", url: "", method: "GET", statusMin: "200", statusMax: "299", keyword: "", keywordMode: "present",
-  host: "", port: "", domain: "", record: "A", expected: "", warnDays: "", every: "24h", grace: "30m",
+  host: "", port: "", domain: "", record: "A", expected: "", warnDays: "", every: "24h", grace: "30m", script: "",
 };
 function fmtDur(sec: number): string {
   if (sec % 86400 === 0) return sec / 86400 + "d";
@@ -28,6 +54,7 @@ function formFromService(s: Service): Record<string, string> {
   else if (s.check_type === "tls") { f.host = String(c.host ?? ""); f.port = String(c.port ?? 443); f.warnDays = c.warn_days != null ? String(c.warn_days) : ""; }
   else if (s.check_type === "domain") { f.domain = String(c.domain ?? ""); f.warnDays = c.warn_days != null ? String(c.warn_days) : ""; }
   else if (s.check_type === "heartbeat") { f.every = fmtDur(s.interval_seconds); f.grace = fmtDur(Number(c.grace_seconds ?? s.interval_seconds * 2)); }
+  else if (s.check_type === "script") { f.script = String(c.script ?? ""); }
   return f;
 }
 function intervalKey(sec: number): string {
@@ -91,6 +118,9 @@ export function AddServiceModal({
     } else if (type === "domain") {
       if (!f.domain.trim()) return setErr("Enter a domain.");
       data.domain = f.domain.trim(); if (f.warnDays.trim()) data.warn_days = +f.warnDays;
+    } else if (type === "script") {
+      if (!f.script.trim()) return setErr("Write a script - at least one request line.");
+      data.script = f.script;
     } else if (type === "heartbeat") {
       data.interval_seconds = toSeconds(f.every); data.grace_seconds = toSeconds(f.grace);
     }
@@ -158,6 +188,35 @@ export function AddServiceModal({
               </>}
               {type === "tls" && <>{F("Host", inp("host", "example.com"))}{F("Port", inp("port", "443"))}{F("Warn before expiry (days)", inp("warnDays", "14"), true)}</>}
               {type === "domain" && <>{F("Domain", inp("domain", "example.com"))}{F("Warn before expiry (days)", inp("warnDays", "30"))}</>}
+              {type === "script" && <>
+                <div className="field" style={{ gridColumn: "1/-1" }}>
+                  <label>Script</label>
+                  <textarea
+                    className="inp mono"
+                    value={f.script}
+                    onChange={(e) => set("script", e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); const t = e.currentTarget; const at = t.selectionStart; set("script", f.script.slice(0, at) + "  " + f.script.slice(t.selectionEnd)); requestAnimationFrame(() => t.setSelectionRange(at + 2, at + 2)); } }}
+                    placeholder={SCRIPT_PLACEHOLDER}
+                    spellCheck={false}
+                    rows={12}
+                    style={{ resize: "vertical", lineHeight: 1.55, minHeight: 200, whiteSpace: "pre", overflowWrap: "normal", overflowX: "auto" }}
+                  />
+                  <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 6 }}>
+                    Runs top to bottom · up to 10 steps · the whole run shares one timeout. The first failed assertion marks the monitor down.
+                  </div>
+                </div>
+                <div style={{ gridColumn: "1/-1", padding: "11px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--sunken)" }}>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>DIRECTIVES</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {SCRIPT_HELP.map(([syntax, note]) => (
+                      <div key={syntax} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
+                        <code style={{ fontSize: 11.5, color: "var(--fg)" }}>{syntax}</code>
+                        {note && <span style={{ fontSize: 11, color: "var(--faint)" }}>{note}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>}
               {type === "heartbeat" && <>
                 {F("Expected every", inp("every", "24h"))}
                 {F("Grace window", inp("grace", "30m"))}

@@ -19,7 +19,7 @@ export interface RecentCheck {
   checked_at: number;
 }
 
-export type CheckType = "http" | "tcp" | "dns" | "heartbeat" | "tls" | "domain";
+export type CheckType = "http" | "tcp" | "dns" | "heartbeat" | "tls" | "domain" | "script";
 
 export interface AppSettings {
   retention_days: number;
@@ -90,6 +90,8 @@ export interface CreateServiceInput {
   grace_seconds?: number;
   // tls / domain
   warn_days?: number;
+  // script
+  script?: string;
 }
 
 export interface Check {

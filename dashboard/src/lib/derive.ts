@@ -92,6 +92,8 @@ export function maskIp(str: string): string {
 /** Target text shown under the service name. */
 export function targetOf(s: Service): string {
   if (s.check_type === "heartbeat") return s.heartbeat_token ? `/ping/${s.heartbeat_token.slice(0, 6)}…` : "heartbeat";
+  // Script urls are stored as "script:<n> steps · GET <first url>" for exactly this.
+  if (s.check_type === "script") return maskIp(s.url.replace(/^script:/, ""));
   return maskIp(s.url);
 }
 
@@ -145,5 +147,6 @@ export const TYPES: { type: CheckType; meta: TypeMeta }[] = [
   { type: "tls", meta: { badge: "TLS", name: "TLS certificate", desc: "Read a site certificate and warn before it expires." } },
   { type: "domain", meta: { badge: "DOMAIN", name: "Domain expiry", desc: "Watch the registrar expiry date via WHOIS / RDAP." } },
   { type: "heartbeat", meta: { badge: "HEARTBEAT", name: "Heartbeat", desc: "Your cron job pings a URL. No ping in the grace window = down." } },
+  { type: "script", meta: { badge: "SCRIPT", name: "Custom script", desc: "Chain several requests, pass values between them, assert on each." } },
 ];
 export const typeMeta = (t: CheckType): TypeMeta => TYPES.find((x) => x.type === t)?.meta ?? TYPES[0].meta;

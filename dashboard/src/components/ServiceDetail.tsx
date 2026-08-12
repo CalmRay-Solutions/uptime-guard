@@ -157,6 +157,21 @@ export function ServiceDetail({
         <ResponseChart checks={checks} />
       )}
 
+      {s.check_type === "script" && (
+        <div className="sec">
+          <div className="h">
+            <span className="name">Script</span>
+            <div style={{ flex: 1 }} />
+            <span className="meta">runs top to bottom on every check</span>
+          </div>
+          <div style={{ padding: 14 }}>
+            <pre className="mono" style={{ margin: 0, padding: "11px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--sunken)", fontSize: 12, lineHeight: 1.6, color: "var(--fg)", overflowX: "auto" }}>
+{String(cfg(s).script ?? "")}
+            </pre>
+          </div>
+        </div>
+      )}
+
       {isHb && s.heartbeat_token && (
         <div className="sec">
           <div className="h"><span className="name">Ping URL</span></div>
