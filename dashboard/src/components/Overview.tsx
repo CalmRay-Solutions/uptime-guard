@@ -6,7 +6,7 @@ import { PublicShareModal } from "./PublicShareModal";
 import { ProjectModal } from "./ProjectModal";
 import {
   statusOf, statusColor, statusSoft, bySeverity, beats, summarize, uptimePct, respMs,
-  targetOf, typeMeta, timeAgo, expiryDays, fmtDate, TYPES,
+  targetOf, typeMeta, timeAgo, expiryDays, fmtDate, TYPES, labelOf, changePhrase,
 } from "../lib/derive";
 
 const PAGE = 10;
@@ -66,14 +66,15 @@ export function Overview({
     }
     if (sum.down === 1) {
       const d = sorted.find((s) => statusOf(s) === "down")!;
-      return { k: "down" as const, ic: "oct" as const, t: `${d.name} is down`, sub: `Last checked ${timeAgo(d.last_checked_at)}. Telegram alert sent.`, arg: d.id };
+      const what = changePhrase(d, true);
+      return { k: "down" as const, ic: "oct" as const, t: `${d.name} ${what === "went down" ? "is down" : what}`, sub: `Last checked ${timeAgo(d.last_checked_at)}.`, arg: d.id };
     }
     if (sum.warn > 0) {
       const w = sorted.find((s) => statusOf(s) === "warn")!;
       const d = expiryDays(w);
       return { k: "warn" as const, ic: "tri" as const, t: `Everything is up · ${sum.warn} warning`, sub: `${w.name}${d != null ? ` expires in ${d} days.` : "."}`, arg: w.id };
     }
-    return { k: "up" as const, ic: "cCheck" as const, t: `All ${services.length} services are up`, sub: "Every check is passing.", arg: undefined };
+    return { k: "up" as const, ic: "cCheck" as const, t: sum.paused ? `${services.length - sum.paused} services are up · ${sum.paused} paused` : `All ${services.length} services are up`, sub: "Every active check is passing.", arg: undefined };
   }, [loading, isEmpty, services, sum, sorted]);
 
   const expiring = useMemo(
@@ -292,7 +293,7 @@ function ServiceRow({ s, onOpen }: { s: Service; onOpen: (id: string) => void })
         <div className="n"><b>{s.name}</b><span className="badge">{typeMeta(s.check_type).badge}</span></div>
         <div className="tgt">{targetOf(s)}</div>
       </div>
-      <div className="cell-pill"><Pill k={k} /></div>
+      <div className="cell-pill"><Pill k={k} label={labelOf(s)} /></div>
       <HeartbeatBars beats={bs} />
       <div className="num u30" style={{ color: k === "down" ? "var(--down)" : "var(--fg)" }}>{uptimePct(s)}</div>
       <div className="num resp" style={{ color: "var(--muted)" }}>{respMs(s)}</div>

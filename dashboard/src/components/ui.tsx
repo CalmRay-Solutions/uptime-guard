@@ -7,11 +7,11 @@ export function StatusGlyph({ k, s = 14 }: { k: StatusKind; s?: number }) {
   return <span style={{ color: statusColor(k), display: "inline-flex" }}><Icon n={statusIcon(k)} s={s} /></span>;
 }
 
-export function Pill({ k }: { k: StatusKind }) {
+export function Pill({ k, label }: { k: StatusKind; label?: string }) {
   return (
     <span className="pill" style={{ background: statusSoft(k) }}>
       <StatusGlyph k={k} s={13} />
-      {statusLabel(k)}
+      {label ?? statusLabel(k)}
     </span>
   );
 }

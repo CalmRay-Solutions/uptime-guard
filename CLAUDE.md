@@ -148,7 +148,14 @@ Shipped and live on prod + demo:
 - One-click Deploy button with verified D1 auto-provisioning
 - README marketed for GitHub stars; animated demo GIF in hero
 
-Most recent work: a seventh monitor type, **custom script**. `worker/src/script.ts` parses a
+Most recent work: TLS/domain monitors no longer say up/down. Dashboard pills read
+Valid / Expiring / Expired / Check failed (`labelOf`, `checkLabel` in `derive.ts`); an
+expiring-but-valid cert is `warn`, not `down`, in the dashboard and public status page.
+Heartbeats read On time / Missed / No pings yet. Telegram/push alerts use `alertHeadline`
+("certificate expires in 9d (04 Oct 2026)", "missed its check-in", "checked in again");
+browser toasts use `changePhrase`. The backend still stores `down` for expiring so incidents
+and re-alerts keep working. Overview banner no longer counts paused monitors as up or
+claims a Telegram alert was sent. Before that: a seventh monitor type, **custom script**. `worker/src/script.ts` parses a
 line-based DSL (`GET <url>` starts a step; `header`, `body`, `expect status|time|body|json`,
 `capture <name> = json|header|status|body`, `#` comments, `{{name}}` interpolation) and runs the
 steps in order, sharing one timeout budget. Any failed assertion marks the monitor down with an

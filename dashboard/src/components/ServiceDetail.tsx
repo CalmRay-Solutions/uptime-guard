@@ -3,7 +3,7 @@ import { api, getConfig, type Service, type Check, type ServiceStats } from "../
 import { Icon } from "./Icon";
 import { Pill, HeartbeatBars } from "./ui";
 import {
-  statusOf, statusColor, beats, uptimePct, respMs, targetOf, typeMeta, timeAgo, cfg, expiryDays, fmtDate,
+  statusOf, statusColor, beats, uptimePct, respMs, targetOf, typeMeta, timeAgo, cfg, expiryDays, fmtDate, labelOf, checkLabel,
 } from "../lib/derive";
 
 /** Detail-shaped placeholder shown on refresh/deep-link while the service loads,
@@ -87,7 +87,7 @@ export function ServiceDetail({
           <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 21, fontWeight: 600, letterSpacing: "-.025em" }}>{s.name}</h2>
             <span className="badge" style={{ fontSize: 9.5, padding: "2px 6px", borderRadius: 5 }}>{typeMeta(s.check_type).badge}</span>
-            <Pill k={k} />
+            <Pill k={k} label={labelOf(s)} />
           </div>
           <div className="mono" style={{ marginTop: 6, fontSize: 12, color: "var(--muted)", overflowWrap: "anywhere" }}>{targetOf(s)}</div>
           <div style={{ marginTop: 8, fontSize: 13 }}>{sinceLine(s)}</div>
@@ -239,7 +239,7 @@ export function ServiceDetail({
             ) : (
               checks.slice(0, 15).map((c) => (
                 <div key={c.id} style={{ display: "grid", gridTemplateColumns: "92px 150px 1fr", gap: 12, padding: "11px 14px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
-                  <div><Pill k={c.status === "down" ? "down" : "up"} /></div>
+                  <div><Pill k={c.status === "down" ? (checkLabel(s.check_type, c.status, c.error) === "Expiring" ? "warn" : "down") : "up"} label={checkLabel(s.check_type, c.status, c.error)} /></div>
                   <div className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(c.checked_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
                   <div style={{ fontSize: 12.5, color: "var(--muted)", overflowWrap: "anywhere" }}>
                     {c.error ? c.error : c.status === "up" ? `OK${c.response_time_ms != null ? ` in ${c.response_time_ms} ms` : ""}${c.status_code ? ` · HTTP ${c.status_code}` : ""}` : "Failed check"}
@@ -280,11 +280,11 @@ function fmtDateTime(ts: number): string {
 function sinceLine(s: Service): string {
   const k = statusOf(s);
   if (s.paused) return `Paused · last checked ${timeAgo(s.last_checked_at)}`;
-  if (k === "down") return `Down · last checked ${timeAgo(s.last_checked_at)}`;
   if ((s.check_type === "tls" || s.check_type === "domain") && s.expires_at != null) {
     const d = expiryDays(s);
-    return `${d != null && d < 0 ? "Expired" : "Valid"} · expires ${fmtDate(s.expires_at)}${d != null && d >= 0 ? ` (${d} days)` : ""}`;
+    return `${labelOf(s) ?? "Valid"} · expires ${fmtDate(s.expires_at)}${d != null && d >= 0 ? ` (${d} days)` : ""}`;
   }
+  if (k === "down") return `${labelOf(s) ?? "Down"} · last checked ${timeAgo(s.last_checked_at)}`;
   if (s.check_type === "heartbeat") return `Last ping ${timeAgo(s.last_ping_at)}`;
   return `Up · last checked ${timeAgo(s.last_checked_at)}`;
 }

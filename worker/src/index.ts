@@ -367,6 +367,26 @@ function faultLine(result: CheckResult): string {
   return result.error ? `Error: ${result.error}` : `Status: ${result.statusCode}`;
 }
 
+/**
+ * Some monitors are not "up/down" things: TLS/domain track expiry, heartbeats track
+ * check-ins. Returns [icon, headline] for those, or null to use the generic wording.
+ */
+function alertHeadline(svc: ServiceRow, result: CheckResult, phase: "open" | "remind" | "resolve", downMs = 0): [string, string] | null {
+  if (svc.check_type === "heartbeat") {
+    if (phase === "resolve") return ["✅", `checked in again${downMs ? ` · was silent ${fmtDowntime(downMs)}` : ""}`];
+    return ["🔴", phase === "remind" ? `still no check-in · ${fmtDowntime(downMs)}` : "missed its check-in"];
+  }
+  if (svc.check_type !== "tls" && svc.check_type !== "domain") return null;
+  const noun = svc.check_type === "tls" ? "certificate" : "domain registration";
+  const exp = result.expiresAt;
+  if (exp == null) return ["🔴", phase === "remind" ? "check still failing" : "check failed"];
+  const days = Math.floor((exp - Date.now()) / DAY_MS);
+  const date = new Date(exp).toUTCString().slice(5, 16);
+  if (phase === "resolve") return ["✅", `${noun} valid until ${date} (${days}d)`];
+  if (days < 0) return ["🔴", `${noun} ${phase === "remind" ? "still " : ""}EXPIRED ${-days}d ago`];
+  return ["⚠️", `${noun} ${phase === "remind" ? "still " : ""}expires in ${days}d (${date})`];
+}
+
 /** First down check: record the incident and fire the initial alert. */
 async function openIncident(env: Env, svc: ServiceRow, result: CheckResult, now: number): Promise<void> {
   const label = TYPE_LABEL[svc.check_type] ?? svc.check_type;
@@ -375,6 +395,13 @@ async function openIncident(env: Env, svc: ServiceRow, result: CheckResult, now:
   )
     .bind(svc.id, now, now)
     .run();
+  const exp = alertHeadline(svc, result, "open");
+  if (exp) {
+    const [icon, head] = exp;
+    await sendTelegram(env, `${icon} <b>${svc.name}</b> ${head}\n${label} · ${svc.url}${result.expiresAt == null ? `\n${faultLine(result)}` : ""}`);
+    await notifyPush(env, `${icon} ${svc.name}`, head, `/p/${svc.project_id}/s/${svc.id}`);
+    return;
+  }
   await sendTelegram(env, `🔴 <b>${svc.name}</b> is DOWN\n${label} · ${svc.url}\n${faultLine(result)}`);
   await notifyPush(env, `🔴 ${svc.name} is down`, `${label} · ${faultLine(result)}`, `/p/${svc.project_id}/s/${svc.id}`);
 }
@@ -394,6 +421,12 @@ async function remindIfDue(env: Env, svc: ServiceRow, result: CheckResult, now: 
     .bind(now, inc.reminder_level + 1, inc.id)
     .run();
   const label = TYPE_LABEL[svc.check_type] ?? svc.check_type;
+  const exp = alertHeadline(svc, result, "remind", now - inc.started_at);
+  if (exp) {
+    const [icon, head] = exp;
+    await sendTelegram(env, `${icon} <b>${svc.name}</b> ${head}\n${label} · ${svc.url}${result.expiresAt == null ? `\n${faultLine(result)}` : ""}`);
+    return;
+  }
   await sendTelegram(
     env,
     `🔴 <b>${svc.name}</b> still DOWN · ${fmtDowntime(now - inc.started_at)}\n${label} · ${svc.url}\n${faultLine(result)}`
@@ -411,6 +444,13 @@ async function resolveIncident(env: Env, svc: ServiceRow, result: CheckResult, n
     .bind(now, svc.id)
     .run();
   const label = TYPE_LABEL[svc.check_type] ?? svc.check_type;
+  const exp = alertHeadline(svc, result, "resolve", inc ? now - inc.started_at : 0);
+  if (exp) {
+    const [icon, head] = exp;
+    await sendTelegram(env, `${icon} <b>${svc.name}</b> ${head}\n${label} · ${svc.url}`);
+    await notifyPush(env, `${icon} ${svc.name}`, head, `/p/${svc.project_id}/s/${svc.id}`);
+    return;
+  }
   const downtime = inc ? ` · was down ${fmtDowntime(now - inc.started_at)}` : "";
   await sendTelegram(
     env,
@@ -565,7 +605,8 @@ async function rollupDaily(env: Env): Promise<void> {
 
 /** Public-safe status for one service (no internal target/config leaked). */
 function publicStatusOf(s: ServiceRow): string {
-  if (s.current_status === "down") return "down";
+  // Expiring-soon certs/domains are a warning publicly, not an outage.
+  if (s.current_status === "down" && !((s.check_type === "tls" || s.check_type === "domain") && s.expires_at != null)) return "down";
   if ((s.check_type === "tls" || s.check_type === "domain") && s.expires_at != null) {
     const days = Math.floor((s.expires_at - Date.now()) / DAY_MS);
     let warn = s.check_type === "domain" ? 30 : 14;

@@ -24,12 +24,14 @@ export function expiryDays(s: Service): number | null {
 export function statusOf(s: Service): StatusKind {
   if (s.paused) return "paused";
   if (s.current_status === "cf_protected") return "cf_protected";
-  if (s.current_status === "down") return "down";
   if (s.check_type === "tls" || s.check_type === "domain") {
+    // Expiring soon is a warning, not an outage; only expired or unreadable is "down".
     const d = expiryDays(s);
     const warn = Number(cfg(s).warn_days ?? (s.check_type === "tls" ? 14 : 30));
     if (d != null && d <= warn) return d < 0 ? "down" : "warn";
+    if (s.current_status === "down") return "down";
   }
+  if (s.current_status === "down") return "down";
   if (s.current_status === "up") return "up";
   return "unknown";
 }
@@ -40,6 +42,35 @@ export const statusSoft = (k: StatusKind) =>
   k === "down" ? "var(--down-soft)" : k === "warn" ? "var(--warn-soft)" : k === "paused" ? "var(--sunken)" : k === "cf_protected" ? "var(--cf-soft)" : "var(--up-soft)";
 export const statusLabel = (k: StatusKind) =>
   k === "down" ? "Down" : k === "warn" ? "Warning" : k === "paused" ? "Paused" : k === "cf_protected" ? "CF Protected" : k === "unknown" ? "Pending" : "Up";
+/** Expiry monitors read as Valid / Expiring / Expired / Check failed, heartbeats as On time / Missed. */
+export function labelOf(s: Service): string | undefined {
+  const k = statusOf(s);
+  if (s.check_type === "heartbeat") return k === "down" ? (s.last_ping_at ? "Missed" : "No pings yet") : k === "up" ? "On time" : undefined;
+  if (s.check_type !== "tls" && s.check_type !== "domain") return undefined;
+  if (k === "warn") return "Expiring";
+  if (k === "down") return (expiryDays(s) ?? 0) < 0 ? "Expired" : "Check failed";
+  if (k === "up") return "Valid";
+  return undefined;
+}
+
+/** Short verb phrase for a status change, worded for the monitor type. */
+export function changePhrase(s: Service, bad: boolean): string {
+  const l = labelOf(s);
+  if (bad) return l === "Expired" ? "has expired" : l === "Missed" || l === "No pings yet" ? "missed its check-in" : l === "Check failed" ? "check failed" : "went down";
+  return s.check_type === "heartbeat" ? "checked in again" : s.check_type === "tls" || s.check_type === "domain" ? "is valid again" : "recovered";
+}
+
+/** Same idea for a single recorded check of an expiry monitor, from its error text. */
+export function checkLabel(type: CheckType, status: string, error: string | null): string | undefined {
+  if (type === "heartbeat") return status === "up" ? "On time" : status === "down" ? "Missed" : undefined;
+  if (type !== "tls" && type !== "domain") return undefined;
+  if (status === "up") return "Valid";
+  if (status !== "down") return undefined;
+  if (error && / expired /.test(error)) return "Expired";
+  if (error && / expires in /.test(error)) return "Expiring";
+  return "Check failed";
+}
+
 export const statusIcon = (k: StatusKind): IconName =>
   k === "down" ? "cX" : k === "warn" ? "tri" : k === "paused" ? "cPause" : k === "cf_protected" ? "cloud" : "cCheck";
 
@@ -62,7 +93,11 @@ export function beats(s: Service, n = 40): Beat[] {
   for (let i = 0; i < pad; i++) out.push({ kind: "blank" });
   for (const c of tail) {
     const down = c.status === "down";
-    const label = c.status === "cf_protected" ? "CF Protected" : down ? "Down" : "Up";
+    const expiry = s.check_type === "tls" || s.check_type === "domain";
+    const label = c.status === "cf_protected" ? "CF Protected"
+      : expiry ? (down ? "Warning" : "Valid")
+      : s.check_type === "heartbeat" ? (down ? "Missed" : "On time")
+      : down ? "Down" : "Up";
     const ms = !down && c.response_time_ms != null ? ` · ${c.response_time_ms} ms` : "";
     const clock = new Date(c.checked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     out.push({ kind: down ? "down" : "up", tip: `${label}${ms} · ${clock} · ${timeAgo(c.checked_at)}` });

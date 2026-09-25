@@ -1,6 +1,6 @@
 // Uptime Guard service worker — installable PWA shell + status notifications.
 // Bump CACHE on each release so returning clients pick up new assets automatically.
-const CACHE = "ug-shell-v3";
+const CACHE = "ug-shell-v4";
 
 self.addEventListener("install", () => {
   // Activate this version immediately instead of waiting for old tabs to close.
