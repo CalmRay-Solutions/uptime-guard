@@ -112,7 +112,9 @@ Do not go back to `0.x`.
 - **Service worker cache:** the SPA is a PWA; after a deploy, bump the SW cache version
   or hard-reload, or clients serve stale assets.
 - **Flap prevention:** `performCheckConfirmed` does a short retry-burst before flipping
-  status; escalating re-alerts back off (5/10/20/40/60 min).
+  status; escalating re-alerts back off (5/10/20/40/60 min). Re-alerts only fire when a
+  check runs, so a down TLS/domain monitor is re-checked at least hourly (`runDueChecks`)
+  even if its interval is daily - otherwise a renewed cert stays "down" for up to a day.
 - **Script monitors are NOT JavaScript:** Workers disable `eval`/`new Function`, so custom
   scripts are a declarative line format (`script.ts`) the Worker interprets. Never try to
   execute user-supplied JS. Limits: 10 steps, 8000 chars, one shared timeout budget

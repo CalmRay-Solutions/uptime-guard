@@ -793,7 +793,12 @@ async function runDueChecks(env: Env): Promise<void> {
     // Heartbeats are evaluated every tick so overdue pings surface promptly.
     if (svc.check_type === "heartbeat") return true;
     if (!svc.last_checked_at) return true;
-    return now - svc.last_checked_at >= svc.interval_seconds * 1000;
+    let interval = svc.interval_seconds;
+    // Expiry monitors often run daily; while down, re-check hourly so a renewal clears fast.
+    if ((svc.check_type === "tls" || svc.check_type === "domain") && svc.current_status === "down") {
+      interval = Math.min(interval, 3600);
+    }
+    return now - svc.last_checked_at >= interval * 1000;
   });
 
   await Promise.allSettled(due.map((svc) => checkService(env, svc)));
